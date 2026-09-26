@@ -4132,7 +4132,7 @@ const CRANES = [
     "manufacturer": "TADANO",
     "model": "GR-1000N-1",
     "classT": 100,
-    "hookWeightT": 0.43,
+    "hookWeightT": 0.3,
     "capacityIncludesHook": true,
     "outrigger": "FULL",
     "direction": "360",
@@ -4140,7 +4140,7 @@ const CRANES = [
     "source": {
       "title": "TADANO GR-1000N (I) 公式仕様書",
       "url": "https://www.tadano.co.jp/products/upload/docs/GR-1000N-1_LNG_JA_JPN_BS_2307.pdf",
-      "page": "定格総荷重表 p.2（最大張出7.8m・360°）"
+      "page": "定格総荷重表 p.2 / 注意事項 p.5"
     },
     "charts": [
       {
@@ -4194,8 +4194,7 @@ const CRANES = [
             7,
             32.3
           ]
-        ],
-        "hookWeightT": 0.73
+        ]
       },
       {
         "boomM": 13.7,
@@ -4256,8 +4255,7 @@ const CRANES = [
             10,
             19
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 17.2,
@@ -4325,13 +4323,8 @@ const CRANES = [
           [
             12,
             13.6
-          ],
-          [
-            14,
-            11.6
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 20.7,
@@ -4402,14 +4395,13 @@ const CRANES = [
           ],
           [
             14,
-            11.9
+            11.6
           ],
           [
             16,
             9.45
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 24.2,
@@ -4480,7 +4472,7 @@ const CRANES = [
           ],
           [
             14,
-            11.8
+            11.9
           ],
           [
             16,
@@ -4498,8 +4490,7 @@ const CRANES = [
             21,
             5.8
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 27.7,
@@ -4566,7 +4557,7 @@ const CRANES = [
           ],
           [
             14,
-            11.5
+            11.8
           ],
           [
             16,
@@ -4592,8 +4583,7 @@ const CRANES = [
             24,
             4.7
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 31.2,
@@ -4656,7 +4646,7 @@ const CRANES = [
           ],
           [
             14,
-            11.2
+            11.5
           ],
           [
             16,
@@ -4690,8 +4680,7 @@ const CRANES = [
             28,
             3.75
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 34.7,
@@ -4792,8 +4781,7 @@ const CRANES = [
             31,
             3.05
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 38.2,
@@ -4902,8 +4890,7 @@ const CRANES = [
             35,
             2.2
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 41.7,
@@ -5012,8 +4999,7 @@ const CRANES = [
             38,
             1.6
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 45.2,
@@ -5126,8 +5112,7 @@ const CRANES = [
             42,
             0.9
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       },
       {
         "boomM": 48,
@@ -5244,15 +5229,33 @@ const CRANES = [
             44,
             0.7
           ]
-        ],
-        "hookWeightT": 0.43
+        ]
       }
     ],
     "audit": "official-PDF-CW4.0t-7.8m-360-verified",
     "hookNote": "10.2mブームは重荷重側として50tフック430kg＋35tフック300kgを保守的に計上。13.7m以降は50tフック430kgで判定",
-    "auditStatus": "HOLD",
-    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。",
+    "auditStatus": "ACTIVE",
+    "auditNote": "TADANO公式簡易版 定格総荷重表：4.0tカウンタウエイト・最大張出7.8m・360°の全掲載セルを再照合済み。50t超の吊荷は自動判定対象外。",
     "auditedAt": "2026-09-26",
-    "configLabel": "カウンタウエイト4.0t・最大張出7.8m・360°"
+    "configLabel": "カウンタウエイト4.0t・最大張出7.8m・360°",
+    "hookRule": {
+      "type": "payload_threshold",
+      "options": [
+        {
+          "maxPayloadT": 35,
+          "hookWeightT": 0.3,
+          "label": "35t主巻フック"
+        },
+        {
+          "maxPayloadT": 50,
+          "hookWeightT": 0.43,
+          "label": "50t主巻フック"
+        }
+      ],
+      "unsupportedAbovePayloadT": 50,
+      "note": "50t超の吊荷は重荷重装置・フック構成を別途確認するため、このアプリでは自動判定対象外"
+    },
+    "counterweightT": 4,
+    "auditVerified": "2026-09-26"
   }
 ];
