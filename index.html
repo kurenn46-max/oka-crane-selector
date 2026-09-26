@@ -63,14 +63,15 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">現在の公式確認済み登録：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
+<div id="summary" class="status">選定有効：5機種（12 / 13 / 16 / 20 / 25t）／ 50・60・70・100tは公式表再監査中</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>登録済み：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
-現在は最大アウトリガ・全周を優先登録。50t以上は公式表を安全側に間引いてあります。</div>
+<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25t</b><br>
+<b>再監査中：50 / 60 / 70 / 100t</b><br>
+大型4機種は公式定格総荷重表を全ブーム長・全半径で再照合完了後に選定へ戻します。</div>
 </section>
 
 <section class="card note">
@@ -105,6 +106,7 @@ function select(){
   if(load<=0||radius<=0){alert("吊荷重量と作業半径を入れてな");return;}
   const out=[];
   for(const c of DB){
+    if(c.auditStatus==="HOLD")continue;
     if(maker!=="ANY"&&c.manufacturer!==maker)continue;
     const h=best(c,load,rig,radius); if(h) out.push({c,h});
   }
