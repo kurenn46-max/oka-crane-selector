@@ -110,7 +110,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <div class="card"><div class="label">最大瞬間</div><div class="value" id="gust">-- m/s</div><div class="label">10m高度</div></div>
 <div class="card"><div class="label">波</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
 </div>
-<div class="note">青矢印＝風が流れていく方向。風は画面全体に軽量表示。青円は中心から半径5kmの目安。</div>
+<div class="note">青矢印＝風が流れていく方向。風は画面全体に表示。青円は中心から半径5kmの目安。</div>
 </section>
 
 <div id="forecastBackdrop"></div>
@@ -144,8 +144,6 @@ let center={...START}, placeName="京都市付近", zoom=13;
 let windSamples=[];
 let drag=null, loading=false, refreshTimer=null;
 let forecastRows=[], forecastWave=null, forecastRange=24, forecastIndex=null, forecastLoading=false;
-let selectedForecastTime=null, selectedForecastOffset=null;
-let lastWeatherRequestAt=0;
 const MODEL_INFO={
   best_match:{label:"Best Match（自動）",param:"best_match",maxHours:168,gust:true,note:"Open-Meteoが地点ごとに最適モデルを自動選択"},
   jma_msm:{label:"JMA MSM",param:"jma_msm",maxHours:96,gust:false,note:"気象庁 MSM・約5km・約4日先まで"},
@@ -157,17 +155,6 @@ let compareMode=false;
 function setStatus(s){$("status").textContent=s}
 function showError(s){$("error").textContent=s;$("error").style.display="block"}
 function clearError(){$("error").style.display="none"}
-function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-async function weatherFetch(url,label){
-  let r=await fetch(url);
-  if(r.status===429){
-    await sleep(1400);
-    r=await fetch(url);
-  }
-  if(r.status===429)throw new Error("429：API混雑中。少し待って再更新");
-  if(!r.ok)throw new Error(label+" "+r.status);
-  return r;
-}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function compass(d){
   if(!Number.isFinite(d))return"--";
@@ -192,12 +179,8 @@ function closeForecastPanel(){
   $("forecastBackdrop").classList.remove("open");
   $("forecastPanel").classList.remove("open");
 }
-function invalidateForecast(keepSelection=false){
+function invalidateForecast(){
   forecastRows=[];forecastWave=null;forecastIndex=null;
-  if(!keepSelection){
-    selectedForecastTime=null;
-    selectedForecastOffset=null;
-  }
 }
 function modelInfo(){return MODEL_INFO[activeModel]||MODEL_INFO.best_match}
 function windVars(){
@@ -287,9 +270,10 @@ function samplePoints(){
   const h=Math.max(300,wrap.clientHeight||300);
   const cp=project(center.lat,center.lng,zoom);
   const arr=[{lat:center.lat,lng:center.lng,screenX:.5,screenY:.5,isCenter:true}];
-  const xs=[.10,.37,.63,.90];
-  const ys=[.14,.50,.86];
+  const xs=[.08,.29,.50,.71,.92];
+  const ys=[.10,.30,.50,.70,.90];
   ys.forEach(y=>xs.forEach(x=>{
+    if(Math.abs(x-.5)<.001&&Math.abs(y-.5)<.001)return;
     const px=cp.x+(x-.5)*w;
     const py=cp.y+(y-.5)*h;
     const p=unproject(px,py,zoom);
@@ -402,7 +386,8 @@ async function getWind(ps){
   u.searchParams.set("models",modelInfo().param);
   u.searchParams.set("wind_speed_unit","ms");
   u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"風API");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("風API "+r.status);
   const d=await r.json();
   return Array.isArray(d)?d:[d];
 }
@@ -416,7 +401,8 @@ async function getWindForModel(ps,modelKey){
   u.searchParams.set("models",m.param);
   u.searchParams.set("wind_speed_unit","ms");
   u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,m.label+" 比較");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error(m.label+" 比較 "+r.status);
   const d=await r.json();
   return Array.isArray(d)?d:[d];
 }
@@ -454,7 +440,8 @@ async function getWave(){
   u.searchParams.set("current","wave_height,wave_period");
   u.searchParams.set("cell_selection","sea");
   u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"波API");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("波API "+r.status);
   return r.json();
 }
 
@@ -468,7 +455,8 @@ async function getWindForecast(ps){
   u.searchParams.set("models",modelInfo().param);
   u.searchParams.set("wind_speed_unit","ms");
   u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"風予報");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("風予報 "+r.status);
   const d=await r.json();
   return Array.isArray(d)?d:[d];
 }
@@ -480,36 +468,10 @@ async function getWaveForecast(){
   u.searchParams.set("forecast_hours","168");
   u.searchParams.set("cell_selection","sea");
   u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"波予報");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("波予報 "+r.status);
   return r.json();
 }
-async function getWindAtTime(ps,iso){
-  const u=new URL("https://api.open-meteo.com/v1/forecast");
-  u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));
-  u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));
-  u.searchParams.set("hourly",windVars());
-  u.searchParams.set("start_hour",iso);
-  u.searchParams.set("end_hour",iso);
-  u.searchParams.set("models",modelInfo().param);
-  u.searchParams.set("wind_speed_unit","ms");
-  u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"風予報");
-  const d=await r.json();
-  return Array.isArray(d)?d:[d];
-}
-async function getWaveAtTime(iso){
-  const u=new URL("https://marine-api.open-meteo.com/v1/marine");
-  u.searchParams.set("latitude",center.lat.toFixed(5));
-  u.searchParams.set("longitude",center.lng.toFixed(5));
-  u.searchParams.set("hourly","wave_height,wave_period");
-  u.searchParams.set("start_hour",iso);
-  u.searchParams.set("end_hour",iso);
-  u.searchParams.set("cell_selection","sea");
-  u.searchParams.set("timezone","auto");
-  const r=await weatherFetch(u,"波予報");
-  return r.json();
-}
-
 function waveForecastAt(i){
   if(!forecastWave||!forecastWave.hourly)return null;
   const model={lat:Number(forecastWave.latitude),lng:Number(forecastWave.longitude)};
@@ -525,10 +487,6 @@ function applyForecastHour(i,scrollCard){
   if(!forecastRows.length)return;
   const ps=samplePoints();
   forecastIndex=i;
-  selectedForecastOffset=i;
-  selectedForecastTime=forecastRows[0]&&forecastRows[0].hourly&&forecastRows[0].hourly.time
-    ? forecastRows[0].hourly.time[i]
-    : selectedForecastTime;
   windSamples=forecastRows.map((x,k)=>({
     lat:ps[k]&&ps[k].lat,
     lng:ps[k]&&ps[k].lng,
@@ -599,17 +557,9 @@ async function loadForecast(){
     ]);
     forecastRows=rows;
     forecastWave=wave;
-    let keepIndex=null;
-    const times=forecastRows[0]&&forecastRows[0].hourly&&forecastRows[0].hourly.time;
-    if(selectedForecastTime&&times){
-      const exact=times.indexOf(selectedForecastTime);
-      if(exact>=0)keepIndex=exact;
-      else if(Number.isInteger(selectedForecastOffset)&&selectedForecastOffset<times.length)keepIndex=selectedForecastOffset;
-    }
-    forecastIndex=keepIndex;
+    forecastIndex=null;
     renderForecastList();
-    if(keepIndex!==null)applyForecastHour(keepIndex,false);
-    else setStatus("予報を選ぶと地図の矢印も切り替わります");
+    setStatus("予報を選ぶと地図の矢印も切り替わります");
   }catch(e){
     $("forecastList").innerHTML='<div class="label" style="padding:14px">予報を取得できません</div>';
     showError("予報取得エラー："+(e.message||e));
@@ -618,63 +568,9 @@ async function loadForecast(){
     forecastLoading=false;
   }
 }
-async function refreshSelectedForecast(){
-  if(!selectedForecastTime||forecastLoading){
-    if(!selectedForecastTime)refreshData();
-    return;
-  }
-  forecastLoading=true;
-  lastWeatherRequestAt=Date.now();
-  clearError();
-  setStatus("選択中の予報時刻を新しい場所で取得中…");
-  $("place").textContent=placeName+"　(青円5km)";
-  try{
-    const ps=samplePoints();
-    const [rows,wave]=await Promise.all([
-      getWindAtTime(ps,selectedForecastTime),
-      getWaveAtTime(selectedForecastTime).catch(()=>null)
-    ]);
-    windSamples=rows.map((x,k)=>({
-      lat:ps[k]&&ps[k].lat,
-      lng:ps[k]&&ps[k].lng,
-      speed:x.hourly&&x.hourly.wind_speed_10m&&x.hourly.wind_speed_10m[0],
-      dir:x.hourly&&x.hourly.wind_direction_10m&&x.hourly.wind_direction_10m[0],
-      gust:x.hourly&&x.hourly.wind_gusts_10m&&x.hourly.wind_gusts_10m[0],
-      compareLevel:""
-    }));
-    renderWindMarkers();
-
-    const c=windSamples[0]||{};
-    $("wind").textContent=Number.isFinite(c.speed)?c.speed.toFixed(1)+" m/s":"-- m/s";
-    $("windDir").textContent=Number.isFinite(c.dir)?compass(c.dir)+"から":"--";
-    $("gust").textContent=modelInfo().gust?(Number.isFinite(c.gust)?c.gust.toFixed(1)+" m/s":"-- m/s"):"提供なし";
-
-    if(wave&&wave.hourly){
-      const model={lat:Number(wave.latitude),lng:Number(wave.longitude)};
-      const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity;
-      const h=wave.hourly.wave_height&&wave.hourly.wave_height[0];
-      const p=wave.hourly.wave_period&&wave.hourly.wave_period[0];
-      $("wave").textContent=seaDistance<=20&&Number.isFinite(h)?h.toFixed(1)+" m":"海域外";
-      $("period").textContent=seaDistance<=20&&Number.isFinite(p)?("周期 "+p.toFixed(1)+" s"+(seaDistance>5?" / 最寄海域 "+seaDistance.toFixed(0)+"km":"")):"周期 -- s";
-    }else{
-      $("wave").textContent="取得不可";
-      $("period").textContent="周期 -- s";
-    }
-
-    const label=selectedForecastTime.replace("T"," ");
-    setStatus("予報："+label+"　場所を動かしても時刻固定");
-  }catch(e){
-    showError("データ取得で停止："+(e.message||e));
-    setStatus("⚠️ データ取得失敗");
-  }finally{
-    forecastLoading=false;
-  }
-}
-
 async function refreshData(){
   if(loading)return;
   loading=true;
-  lastWeatherRequestAt=Date.now();
   clearError();
   setStatus(modelInfo().label+" の風を取得中…");
   $("place").textContent=placeName+"　(青円5km)";
@@ -727,12 +623,7 @@ async function refreshData(){
 
 function scheduleRefresh(){
   clearTimeout(refreshTimer);
-  const elapsed=Date.now()-lastWeatherRequestAt;
-  const delay=Math.max(900,3200-elapsed);
-  refreshTimer=setTimeout(()=>{
-    if(selectedForecastTime)refreshSelectedForecast();
-    else refreshData();
-  },delay);
+  refreshTimer=setTimeout(refreshData,250);
 }
 
 function moveTo(c,name){
@@ -768,7 +659,7 @@ function endDrag(e){
   drag=null;
   map.classList.remove("dragging");
   if(moved){
-    invalidateForecast(true);
+    invalidateForecast();
     closeForecastPanel();
     $("place").textContent="地図で選択した地点　(青円5km)";
     scheduleRefresh();
@@ -779,25 +670,24 @@ map.addEventListener("pointercancel",endDrag);
 
 $("zoomIn").addEventListener("click",()=>{
   zoom=Math.min(17,zoom+1);
-  invalidateForecast(true);
+  invalidateForecast();
   closeForecastPanel();
   renderMap();
   scheduleRefresh();
 });
 $("zoomOut").addEventListener("click",()=>{
   zoom=Math.max(8,zoom-1);
-  invalidateForecast(true);
+  invalidateForecast();
   closeForecastPanel();
   renderMap();
   scheduleRefresh();
 });
 $("modelSelect").addEventListener("change",()=>{
   activeModel=$("modelSelect").value;
-  invalidateForecast(true);
+  invalidateForecast();
   closeForecastPanel();
   updateModelUI();
-  if(selectedForecastTime)refreshSelectedForecast();
-  else refreshData();
+  refreshData();
 });
 $("compareBtn").addEventListener("click",()=>{
   compareMode=!compareMode;
