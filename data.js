@@ -2194,7 +2194,8 @@ const CRANES = [
             24
           ]
         ],
-        "hookWeightT": 0.46
+        "hookWeightT": 0.46,
+        "hookLabel": "51t主巻フック"
       },
       {
         "boomM": 16,
@@ -2264,7 +2265,8 @@ const CRANES = [
             7.1
           ]
         ],
-        "hookWeightT": 0.46
+        "hookWeightT": 0.46,
+        "hookLabel": "51t主巻フック"
       },
       {
         "boomM": 22.3,
@@ -2346,7 +2348,8 @@ const CRANES = [
             3
           ]
         ],
-        "hookWeightT": 0.3
+        "hookWeightT": 0.3,
+        "hookLabel": "25t主巻フック"
       },
       {
         "boomM": 28.6,
@@ -2440,7 +2443,8 @@ const CRANES = [
             1.7
           ]
         ],
-        "hookWeightT": 0.3
+        "hookWeightT": 0.3,
+        "hookLabel": "25t主巻フック"
       },
       {
         "boomM": 34.9,
@@ -2538,7 +2542,8 @@ const CRANES = [
             0.9
           ]
         ],
-        "hookWeightT": 0.3
+        "hookWeightT": 0.3,
+        "hookLabel": "25t主巻フック"
       },
       {
         "boomM": 38.05,
@@ -2636,7 +2641,8 @@ const CRANES = [
             0.7
           ]
         ],
-        "hookWeightT": 0.3
+        "hookWeightT": 0.3,
+        "hookLabel": "25t主巻フック"
       },
       {
         "boomM": 41.2,
@@ -2730,7 +2736,8 @@ const CRANES = [
             0.6
           ]
         ],
-        "hookWeightT": 0.3
+        "hookWeightT": 0.3,
+        "hookLabel": "25t主巻フック"
       }
     ],
     "audit": "official-PDF-7.4m-all-around-verified",
@@ -2808,7 +2815,8 @@ const CRANES = [
             23.1
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 14.1,
@@ -2878,7 +2886,8 @@ const CRANES = [
             12.5
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 17.8,
@@ -2956,7 +2965,8 @@ const CRANES = [
             7.7
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 25.4,
@@ -3050,7 +3060,8 @@ const CRANES = [
             3.4
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 33.6,
@@ -3152,7 +3163,8 @@ const CRANES = [
             1.8
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 37.3,
@@ -3258,7 +3270,8 @@ const CRANES = [
             0.9
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 40,
@@ -3364,7 +3377,8 @@ const CRANES = [
             0.5
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 41.2,
@@ -3470,7 +3484,8 @@ const CRANES = [
             0.5
           ]
         ],
-        "hookWeightT": 0.31
+        "hookWeightT": 0.31,
+        "hookLabel": "35t主巻フック"
       }
     ],
     "audit": "official-PDF-7.6m-360-verified",
@@ -3540,7 +3555,8 @@ const CRANES = [
             29.4
           ]
         ],
-        "hookWeightT": 0.68
+        "hookWeightT": 0.68,
+        "hookLabel": "35t主巻フック×2（重荷重）"
       },
       {
         "boomM": 16.6,
@@ -3610,7 +3626,8 @@ const CRANES = [
             8.45
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 23.5,
@@ -3696,7 +3713,8 @@ const CRANES = [
             2.7
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 30.3,
@@ -3798,7 +3816,8 @@ const CRANES = [
             1.15
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 37.2,
@@ -3904,7 +3923,8 @@ const CRANES = [
             0.6
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 41.2,
@@ -4010,7 +4030,8 @@ const CRANES = [
             0.65
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       },
       {
         "boomM": 44,
@@ -4116,7 +4137,8 @@ const CRANES = [
             0.6
           ]
         ],
-        "hookWeightT": 0.34
+        "hookWeightT": 0.34,
+        "hookLabel": "35t主巻フック"
       }
     ],
     "audit": "official-PDF-7.6m-all-around-verified",
@@ -4193,7 +4215,9 @@ const CRANES = [
             7,
             32.3
           ]
-        ]
+        ],
+        "hookWeightT": 0.73,
+        "hookLabel": "重荷重：50t＋35t主巻フック"
       },
       {
         "boomM": 13.7,
@@ -4254,7 +4278,9 @@ const CRANES = [
             10,
             19
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 17.2,
@@ -4323,7 +4349,9 @@ const CRANES = [
             12,
             13.6
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 20.7,
@@ -4400,7 +4428,9 @@ const CRANES = [
             16,
             9.45
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 24.2,
@@ -4489,7 +4519,9 @@ const CRANES = [
             21,
             5.8
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 27.7,
@@ -4582,7 +4614,9 @@ const CRANES = [
             24,
             4.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 31.2,
@@ -4679,7 +4713,9 @@ const CRANES = [
             28,
             3.75
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 34.7,
@@ -4780,7 +4816,9 @@ const CRANES = [
             31,
             3.05
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 38.2,
@@ -4889,7 +4927,9 @@ const CRANES = [
             35,
             2.2
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 41.7,
@@ -4998,7 +5038,9 @@ const CRANES = [
             38,
             1.6
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 45.2,
@@ -5111,7 +5153,9 @@ const CRANES = [
             42,
             0.9
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       },
       {
         "boomM": 48,
@@ -5228,32 +5272,17 @@ const CRANES = [
             44,
             0.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.43,
+        "hookLabel": "50t主巻フック"
       }
     ],
     "audit": "official-PDF-CW4.0t-7.8m-360-verified",
-    "hookNote": "10.2mブームは重荷重側として50tフック430kg＋35tフック300kgを保守的に計上。13.7m以降は50tフック430kgで判定",
+    "hookNote": "10.2mブームは重荷重仕様（50t主巻フック430kg＋35t主巻フック300kg＝計730kg）で判定。13.7m以降は50t主巻フック430kgで判定。",
     "auditStatus": "ACTIVE",
     "auditNote": "TADANO公式簡易版 定格総荷重表：4.0tカウンタウエイト・最大張出7.8m・360°の全掲載セルを再照合済み。50t超の吊荷は自動判定対象外。",
     "auditedAt": "2026-09-26",
     "configLabel": "カウンタウエイト4.0t・最大張出7.8m・360°",
-    "hookRule": {
-      "type": "payload_threshold",
-      "options": [
-        {
-          "maxPayloadT": 35,
-          "hookWeightT": 0.3,
-          "label": "35t主巻フック"
-        },
-        {
-          "maxPayloadT": 50,
-          "hookWeightT": 0.43,
-          "label": "50t主巻フック"
-        }
-      ],
-      "unsupportedAbovePayloadT": 50,
-      "note": "50t超の吊荷は重荷重装置・フック構成を別途確認するため、このアプリでは自動判定対象外"
-    },
     "counterweightT": 4,
     "auditVerified": "2026-09-26"
   }
