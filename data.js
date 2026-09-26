@@ -4153,7 +4153,7 @@ const CRANES = [
     "manufacturer": "TADANO",
     "model": "GR-1000N-1",
     "classT": 100,
-    "hookWeightT": 0.3,
+    "hookWeightT": 0.43,
     "capacityIncludesHook": true,
     "outrigger": "FULL",
     "direction": "360",
@@ -5278,7 +5278,7 @@ const CRANES = [
       }
     ],
     "audit": "official-PDF-CW4.0t-7.8m-360-verified",
-    "hookNote": "10.2mブームは重荷重仕様（50t主巻フック430kg＋35t主巻フック300kg＝計730kg）で判定。13.7m以降は50t主巻フック430kgで判定。",
+    "hookNote": "10.2m重荷重側は50tフック430kg＋35tフック300kgを安全側に計上。13.7m以降は50tフック430kgで判定（35tフック300kg使用時は実機条件で再確認）",
     "auditStatus": "ACTIVE",
     "auditNote": "TADANO公式簡易版 定格総荷重表：4.0tカウンタウエイト・最大張出7.8m・360°の全掲載セルを再照合済み。50t超の吊荷は自動判定対象外。",
     "auditedAt": "2026-09-26",
