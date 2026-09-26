@@ -2,47 +2,70 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#07131e">
 <title>OKA Wind & Wave Lite</title>
 <style>
 *{box-sizing:border-box}html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#07131e;color:#fff}
 body{display:grid;grid-template-rows:auto auto auto 1fr auto;overflow:hidden}
-header{padding:10px 12px;background:#0b1d2b;border-bottom:1px solid #294354}
+header{padding:9px 12px;background:#0b1d2b;border-bottom:1px solid #294354}
 h1{font-size:17px;margin:0}.sub{font-size:11px;color:#abc0cd;margin-top:2px}
-#jsState{margin-top:5px;font-size:12px;font-weight:800;color:#7af0a4}
 .search{padding:8px;background:#0d2231;border-bottom:1px solid #294354}
 .row{display:grid;grid-template-columns:1fr auto;gap:7px}
 input,button{font:inherit;border-radius:11px;border:1px solid #345064}
-input{min-width:0;background:#102a3b;color:#fff;padding:11px}
-button{background:#17374a;color:#fff;padding:10px 12px;font-weight:800}
+input{min-width:0;background:#102a3b;color:#fff;padding:11px;font-size:16px}
+button{background:#17374a;color:#fff;padding:10px 12px;font-weight:800;touch-action:manipulation}
 button.primary{background:#58bcff;color:#00131f;border:0}
-.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}.actions button{font-size:11px;padding:8px 3px}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}.actions button{font-size:12px;padding:8px 3px}
 #status{padding:7px 10px;background:#101d26;color:#d5e4ee;font-size:12px;border-bottom:1px solid #28404f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#mapWrap{position:relative;min-height:0;background:#183247;overflow:hidden}
-#baseMap{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:#173244}
-#overlay{position:absolute;inset:0;pointer-events:none}
-.circle{position:absolute;left:50%;top:50%;width:82%;max-height:82%;aspect-ratio:1/1;transform:translate(-50%,-50%);border:2px solid #58bcff;border-radius:50%;background:rgba(88,188,255,.04)}
-.center{position:absolute;left:50%;top:50%;width:15px;height:15px;transform:translate(-50%,-50%);border:3px solid white;border-radius:50%;background:#ff5c58;box-shadow:0 1px 5px #000}
-.marker{position:absolute;transform:translate(-50%,-50%);text-align:center;filter:drop-shadow(0 1px 2px #000)}
-.arrow{font-size:26px;line-height:22px;font-weight:900;color:#56c0ff;transform-origin:50% 50%}
+#mapWrap{position:relative;min-height:0;background:#183247;overflow:hidden;touch-action:none;user-select:none}
+#tiles,#windLayer{position:absolute;inset:0;overflow:hidden}
+.tile{position:absolute;width:256px;height:256px;max-width:none;pointer-events:none}
+#windLayer{pointer-events:none}
+.circle{position:absolute;border:2px solid #58bcff;border-radius:50%;background:rgba(88,188,255,.035);transform:translate(-50%,-50%);pointer-events:none}
+.center{position:absolute;left:50%;top:50%;width:17px;height:17px;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:50%;background:#ff5c58;box-shadow:0 1px 5px #000;z-index:8}
+.marker{position:absolute;transform:translate(-50%,-50%);text-align:center;filter:drop-shadow(0 1px 2px #000);z-index:7}
+.arrow{font-size:25px;line-height:21px;font-weight:900;color:#56c0ff;transform-origin:50% 50%}
 .tag{display:inline-block;margin-top:2px;padding:2px 5px;border-radius:7px;background:rgba(0,15,24,.9);border:1px solid rgba(255,255,255,.24);font-size:10px;font-weight:900;white-space:nowrap}
+.zoom{position:absolute;right:10px;top:10px;z-index:12;display:grid;gap:5px}
+.zoom button{width:46px;height:46px;padding:0;font-size:26px;background:rgba(9,27,39,.94)}
+.hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:11;background:rgba(4,18,27,.9);border:1px solid #365061;border-radius:999px;padding:6px 10px;font-size:11px;white-space:nowrap;pointer-events:none}
+.attrib{position:absolute;right:4px;bottom:3px;z-index:10;background:rgba(255,255,255,.8);color:#222;font-size:8px;padding:1px 3px}
 .bottom{background:#0b1d2b;border-top:1px solid #294354;padding:9px}
 .place{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}.card{background:#102a3b;border:1px solid #304b5c;border-radius:10px;padding:7px}
 .label{font-size:10px;color:#9eb5c3}.value{font-size:15px;font-weight:900;margin-top:2px}.note{font-size:9px;color:#9eb5c3;margin-top:5px}
 #error{display:none;margin-top:6px;color:#ffb2b2;font-size:11px}
+.dragging .hint{display:none}
 </style>
 </head>
 <body>
-<header><h1>OKA Wind & Wave Lite</h1><div class="sub">外部地図ライブラリなし・動作診断版</div><div id="jsState">JavaScript確認中…</div></header>
+<header>
+<h1>OKA Wind & Wave Lite</h1>
+<div class="sub">地図を指で動かして、その中心の風・波を表示</div>
+</header>
 <section class="search">
-<form id="searchForm" class="row"><input id="query" placeholder="住所・地名（例：小浜市堅海）"><button class="primary" type="submit">検索</button></form>
-<div class="actions"><button type="button" id="testBtn">動作テスト</button><button type="button" id="locateBtn">📍現在地</button><button type="button" id="refreshBtn">↻更新</button><button type="button" id="kyotoBtn">京都</button></div>
+<form id="searchForm" class="row">
+<input id="query" placeholder="住所・地名（例：小浜市堅海）">
+<button class="primary" type="submit">検索</button>
+</form>
+<div class="actions">
+<button type="button" id="locateBtn">📍現在地</button>
+<button type="button" id="refreshBtn">↻更新</button>
+<button type="button" id="kyotoBtn">京都</button>
+</div>
 <div id="error"></div>
 </section>
 <div id="status">起動しています…</div>
-<div id="mapWrap"><iframe id="baseMap" title="地図"></iframe><div id="overlay"><div class="circle"></div><div class="center"></div></div></div>
+<div id="mapWrap">
+<div id="tiles"></div>
+<div id="windLayer"></div>
+<div id="rangeCircle" class="circle"></div>
+<div class="center"></div>
+<div class="hint">地図を指で動かす → 離すと更新</div>
+<div class="zoom"><button type="button" id="zoomIn" aria-label="拡大">＋</button><button type="button" id="zoomOut" aria-label="縮小">−</button></div>
+<div class="attrib">© OpenStreetMap contributors</div>
+</div>
 <section class="bottom">
 <div class="place" id="place">京都市付近</div>
 <div class="cards">
@@ -50,38 +73,137 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <div class="card"><div class="label">最大瞬間</div><div class="value" id="gust">-- m/s</div><div class="label">10m高度</div></div>
 <div class="card"><div class="label">波</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
 </div>
-<div class="note">青矢印＝風が流れていく方向。地図は固定表示で、半径5km内の風を約2km間隔で表示。</div>
+<div class="note">青矢印＝風が流れていく方向。赤点が中心。半径5km内を約2km間隔で表示。</div>
 </section>
+
 <script>
 (function(){
 "use strict";
+
 const $=id=>document.getElementById(id);
 const START={lat:35.0116,lng:135.7681};
-let center={...START},placeName="京都市付近",testCount=0;
-$("jsState").textContent="✅ JavaScript 起動OK";
-$("status").textContent="データ取得準備OK";
+const TILE=256, EARTH=6378137;
+let center={...START}, placeName="京都市付近", zoom=13;
+let windSamples=[];
+let drag=null, loading=false, refreshTimer=null;
+
 function setStatus(s){$("status").textContent=s}
 function showError(s){$("error").textContent=s;$("error").style.display="block"}
 function clearError(){$("error").style.display="none"}
-function compass(d){if(!Number.isFinite(d))return"--";const a=["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];return a[Math.round((((d%360)+360)%360)/22.5)%16]}
-function dest(lat,lng,km,bearing){const R=6371,d=km/R,b=bearing*Math.PI/180,p1=lat*Math.PI/180,l1=lng*Math.PI/180;const p2=Math.asin(Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(b));const l2=l1+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(p1),Math.cos(d)-Math.sin(p1)*Math.sin(p2));return{lat:p2*180/Math.PI,lng:l2*180/Math.PI}}
-function hav(a,b){const R=6371,t=x=>x*Math.PI/180,dp=t(b.lat-a.lat),dl=t(b.lng-a.lng),x=Math.sin(dp/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
-function parseCoord(s){const m=s.trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,， ]\s*(-?\d{1,3}(?:\.\d+)?)$/);if(!m)return null;const lat=Number(m[1]),lng=Number(m[2]);return Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null}
-function points(){const arr=[{lat:center.lat,lng:center.lng,n:0,e:0}];[-4,-2,0,2,4].forEach(n=>[-4,-2,0,2,4].forEach(e=>{if(n===0&&e===0)return;if(Math.hypot(n,e)>5)return;const km=Math.hypot(n,e),br=(Math.atan2(e,n)*180/Math.PI+360)%360,p=dest(center.lat,center.lng,km,br);arr.push({...p,n,e})}));return arr}
-function mapUrl(){const latSpan=.055,lngSpan=.072/Math.max(.4,Math.cos(center.lat*Math.PI/180));const left=center.lng-lngSpan,right=center.lng+lngSpan,bottom=center.lat-latSpan,top=center.lat+latSpan;return "https://www.openstreetmap.org/export/embed.html?bbox="+encodeURIComponent(left+","+bottom+","+right+","+top)+"&layer=mapnik&marker="+encodeURIComponent(center.lat+","+center.lng)}
-function updateBaseMap(){$("baseMap").src=mapUrl();$("place").textContent=placeName+"　(半径5km)"}
-function clearWindMarkers(){document.querySelectorAll(".windMarker").forEach(x=>x.remove())}
-function addWindMarker(p,speed,from){const el=document.createElement("div");el.className="marker windMarker";el.style.left=(50+(p.e/12)*100)+"%";el.style.top=(50-(p.n/12)*100)+"%";const to=(from+180)%360;el.innerHTML='<div class="arrow" style="transform:rotate('+to+'deg)">↑</div><div class="tag">'+speed.toFixed(1)+' m/s</div>';$("overlay").appendChild(el)}
-async function getWind(ps){const u=new URL("https://api.open-meteo.com/v1/forecast");u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));u.searchParams.set("current","wind_speed_10m,wind_direction_10m,wind_gusts_10m");u.searchParams.set("wind_speed_unit","ms");u.searchParams.set("timezone","auto");const r=await fetch(u);if(!r.ok)throw new Error("風API "+r.status);const d=await r.json();return Array.isArray(d)?d:[d]}
-async function getWave(){const u=new URL("https://marine-api.open-meteo.com/v1/marine");u.searchParams.set("latitude",center.lat.toFixed(5));u.searchParams.set("longitude",center.lng.toFixed(5));u.searchParams.set("current","wave_height,wave_period");u.searchParams.set("cell_selection","sea");u.searchParams.set("timezone","auto");const r=await fetch(u);if(!r.ok)throw new Error("波API "+r.status);return r.json()}
-async function refresh(){clearError();setStatus("風データ取得中…");updateBaseMap();try{const ps=points(),rows=await getWind(ps);clearWindMarkers();rows.forEach((x,i)=>{const s=x.current&&x.current.wind_speed_10m,d=x.current&&x.current.wind_direction_10m;if(Number.isFinite(s)&&Number.isFinite(d))addWindMarker(ps[i],s,d)});const c=rows[0]&&rows[0].current||{};$("wind").textContent=Number.isFinite(c.wind_speed_10m)?c.wind_speed_10m.toFixed(1)+" m/s":"-- m/s";$("windDir").textContent=Number.isFinite(c.wind_direction_10m)?compass(c.wind_direction_10m)+"から":"--";$("gust").textContent=Number.isFinite(c.wind_gusts_10m)?c.wind_gusts_10m.toFixed(1)+" m/s":"-- m/s";setStatus("風OK。波データ確認中…");try{const w=await getWave(),model={lat:Number(w.latitude),lng:Number(w.longitude)},near=Number.isFinite(model.lat)&&hav({lat:center.lat,lng:center.lng},model)<=5,cur=w.current||{};$("wave").textContent=near&&Number.isFinite(cur.wave_height)?cur.wave_height.toFixed(1)+" m":"海域外";$("period").textContent=near&&Number.isFinite(cur.wave_period)?"周期 "+cur.wave_period.toFixed(1)+" s":"周期 -- s"}catch(_){$("wave").textContent="取得不可";$("period").textContent="周期 -- s"}setStatus("✅ 表示更新完了")}catch(e){showError("データ取得で停止："+(e.message||e));setStatus("⚠️ データ取得失敗")}}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function compass(d){
+  if(!Number.isFinite(d))return"--";
+  const a=["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"];
+  return a[Math.round((((d%360)+360)%360)/22.5)%16];
+}
+function project(lat,lng,z){
+  const scale=TILE*Math.pow(2,z);
+  const x=(lng+180)/360*scale;
+  const sin=Math.sin(clamp(lat,-85.05112878,85.05112878)*Math.PI/180);
+  const y=(0.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*scale;
+  return{x,y};
+}
+function unproject(x,y,z){
+  const scale=TILE*Math.pow(2,z);
+  const lng=x/scale*360-180;
+  const n=Math.PI-2*Math.PI*y/scale;
+  const lat=180/Math.PI*Math.atan(Math.sinh(n));
+  return{lat:clamp(lat,-85.05112878,85.05112878),lng:((lng+540)%360)-180};
+}
+function metersPerPixel(lat,z){
+  return Math.cos(lat*Math.PI/180)*2*Math.PI*EARTH/(TILE*Math.pow(2,z));
+}
+function dest(lat,lng,km,bearing){
+  const R=6371,d=km/R,b=bearing*Math.PI/180,p1=lat*Math.PI/180,l1=lng*Math.PI/180;
+  const p2=Math.asin(Math.sin(p1)*Math.cos(d)+Math.cos(p1)*Math.sin(d)*Math.cos(b));
+  const l2=l1+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(p1),Math.cos(d)-Math.sin(p1)*Math.sin(p2));
+  return{lat:p2*180/Math.PI,lng:l2*180/Math.PI};
+}
+function hav(a,b){
+  const R=6371,t=x=>x*Math.PI/180,dp=t(b.lat-a.lat),dl=t(b.lng-a.lng);
+  const x=Math.sin(dp/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function parseCoord(s){
+  const m=s.trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,， ]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+  if(!m)return null;
+  const lat=Number(m[1]),lng=Number(m[2]);
+  return Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null;
+}
+function samplePoints(){
+  const arr=[{lat:center.lat,lng:center.lng,n:0,e:0}];
+  [-4,-2,0,2,4].forEach(n=>[-4,-2,0,2,4].forEach(e=>{
+    if(n===0&&e===0)return;
+    if(Math.hypot(n,e)>5)return;
+    const km=Math.hypot(n,e);
+    const br=(Math.atan2(e,n)*180/Math.PI+360)%360;
+    const p=dest(center.lat,center.lng,km,br);
+    arr.push({...p,n,e});
+  }));
+  return arr;
+}
+
+function renderMap(){
+  const wrap=$("mapWrap"), w=wrap.clientWidth, h=wrap.clientHeight;
+  if(!w||!h)return;
+  const cp=project(center.lat,center.lng,zoom);
+  const left=cp.x-w/2, top=cp.y-h/2;
+  const minX=Math.floor(left/TILE)-1, maxX=Math.floor((left+w)/TILE)+1;
+  const minY=Math.floor(top/TILE)-1, maxY=Math.floor((top+h)/TILE)+1;
+  const count=Math.pow(2,zoom);
+  const frag=document.createDocumentFragment();
+  for(let ty=minY;ty<=maxY;ty++){
+    if(ty<0||ty>=count)continue;
+    for(let tx=minX;tx<=maxX;tx++){
+      const wx=((tx%count)+count)%count;
+      const img=document.createElement("img");
+      img.className="tile";
+      img.alt="";
+      img.draggable=false;
+      img.src="https://tile.openstreetmap.org/"+zoom+"/"+wx+"/"+ty+".png";
+      img.style.left=(tx*TILE-left)+"px";
+      img.style.top=(ty*TILE-top)+"px";
+      frag.appendChild(img);
+    }
+  }
+  const tiles=$("tiles");
+  tiles.replaceChildren(frag);
+
+  const px=5000/metersPerPixel(center.lat,zoom);
+  const c=$("rangeCircle");
+  c.style.left=(w/2)+"px"; c.style.top=(h/2)+"px";
+  c.style.width=(px*2)+"px"; c.style.height=(px*2)+"px";
+
+  renderWindMarkers();
+}
+
+function renderWindMarkers(){
+  const layer=$("windLayer");
+  layer.replaceChildren();
+  const wrap=$("mapWrap"), w=wrap.clientWidth, h=wrap.clientHeight;
+  if(!w||!h)return;
+  const cp=project(center.lat,center.lng,zoom);
+  windSamples.forEach(x=>{
+    if(!Number.isFinite(x.speed)||!Number.isFinite(x.dir))return;
+    const p=project(x.lat,x.lng,zoom);
+    const sx=w/2+(p.x-cp.x), sy=h/2+(p.y-cp.y);
+    if(sx<-70||sx>w+70||sy<-70||sy>h+70)return;
+    const el=document.createElement("div");
+    el.className="marker";
+    el.style.left=sx+"px"; el.style.top=sy+"px";
+    const to=(x.dir+180)%360;
+    el.innerHTML='<div class="arrow" style="transform:rotate('+to+'deg)">↑</div><div class="tag">'+x.speed.toFixed(1)+' m/s</div>';
+    layer.appendChild(el);
+  });
+}
+
 function normalizeJaAddress(q){
-  return q.replace(/[〒]/g,"").replace(/\\b\\d{3}-?\\d{4}\\b/g,"").replace(/[　\\s]+/g,"").replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).trim();
+  return q.replace(/[〒]/g,"").replace(/\b\d{3}-?\d{4}\b/g,"").replace(/[　\s]+/g,"").replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).trim();
 }
 function addressQueries(q){
   const n=normalizeJaAddress(q);
   const out=[n];
-  const noTail=n.replace(/(?:\\d+(?:[-ー‐–—]\\d+)*)$/,"");
+  const noTail=n.replace(/(?:\d+(?:[-ー‐–—]\d+)*)$/,"");
   if(noTail&&noTail!==n)out.push(noTail);
   const spaced=noTail.replace(/(都|道|府|県)/,"$1 ").replace(/(市|区|町|村)/g,"$1 ").trim();
   if(spaced&&!out.includes(spaced))out.push(spaced);
@@ -113,15 +235,149 @@ async function geocode(q){
   const qs=addressQueries(q);
   for(const x of qs){try{const g=await gsiSearch(x);if(g)return g}catch(_){}}
   for(const x of qs){try{const n=await nominatimSearch(x);if(n)return n}catch(_){}}
-  throw new Error("地点が見つかりません。地名だけ（例：小浜市堅海）でも試せます");
+  throw new Error("地点が見つかりません。地名だけでも試せます");
 }
-async function setCenter(c,name){center={lat:Number(c.lat),lng:Number(c.lng)};placeName=name||center.lat.toFixed(5)+","+center.lng.toFixed(5);await refresh()}
-$("testBtn").addEventListener("click",()=>{testCount++;$("jsState").textContent="✅ ボタン動作OK "+testCount+"回";setStatus("ボタンは正常に反応しています")});
-$("refreshBtn").addEventListener("click",refresh);
-$("kyotoBtn").addEventListener("click",()=>setCenter(START,"京都市付近"));
-$("locateBtn").addEventListener("click",()=>{clearError();setStatus("現在地取得中…");if(!navigator.geolocation){showError("このブラウザは現在地に非対応");return}navigator.geolocation.getCurrentPosition(p=>setCenter({lat:p.coords.latitude,lng:p.coords.longitude},"現在地"),e=>{showError("現在地エラー："+e.message);setStatus("現在地を取得できません")},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})});
-$("searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("query").value.trim();if(!q)return;clearError();setStatus("日本住所を検索中…");try{const r=await geocode(q);await setCenter(r,r.name)}catch(err){showError(err.message||"検索失敗");setStatus("住所検索失敗")}});
-updateBaseMap();refresh();
+
+async function getWind(ps){
+  const u=new URL("https://api.open-meteo.com/v1/forecast");
+  u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));
+  u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));
+  u.searchParams.set("current","wind_speed_10m,wind_direction_10m,wind_gusts_10m");
+  u.searchParams.set("wind_speed_unit","ms");u.searchParams.set("timezone","auto");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("風API "+r.status);
+  const d=await r.json();
+  return Array.isArray(d)?d:[d];
+}
+async function getWave(){
+  const u=new URL("https://marine-api.open-meteo.com/v1/marine");
+  u.searchParams.set("latitude",center.lat.toFixed(5));
+  u.searchParams.set("longitude",center.lng.toFixed(5));
+  u.searchParams.set("current","wave_height,wave_period");
+  u.searchParams.set("cell_selection","sea");
+  u.searchParams.set("timezone","auto");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("波API "+r.status);
+  return r.json();
+}
+
+async function refreshData(){
+  if(loading)return;
+  loading=true;
+  clearError();
+  setStatus("この地点の風を取得中…");
+  $("place").textContent=placeName+"　(半径5km)";
+  try{
+    const ps=samplePoints();
+    const rows=await getWind(ps);
+    windSamples=rows.map((x,i)=>({
+      lat:ps[i].lat,lng:ps[i].lng,
+      speed:x.current&&x.current.wind_speed_10m,
+      dir:x.current&&x.current.wind_direction_10m,
+      gust:x.current&&x.current.wind_gusts_10m
+    }));
+    renderWindMarkers();
+
+    const c=windSamples[0]||{};
+    $("wind").textContent=Number.isFinite(c.speed)?c.speed.toFixed(1)+" m/s":"-- m/s";
+    $("windDir").textContent=Number.isFinite(c.dir)?compass(c.dir)+"から":"--";
+    $("gust").textContent=Number.isFinite(c.gust)?c.gust.toFixed(1)+" m/s":"-- m/s";
+
+    try{
+      const w=await getWave();
+      const model={lat:Number(w.latitude),lng:Number(w.longitude)};
+      const near=Number.isFinite(model.lat)&&hav(center,model)<=5;
+      const cur=w.current||{};
+      $("wave").textContent=near&&Number.isFinite(cur.wave_height)?cur.wave_height.toFixed(1)+" m":"海域外";
+      $("period").textContent=near&&Number.isFinite(cur.wave_period)?"周期 "+cur.wave_period.toFixed(1)+" s":"周期 -- s";
+    }catch(_){
+      $("wave").textContent="取得不可";
+      $("period").textContent="周期 -- s";
+    }
+    setStatus("✅ 地図を動かせます。指を離すと再計算");
+  }catch(e){
+    showError("データ取得で停止："+(e.message||e));
+    setStatus("⚠️ データ取得失敗");
+  }finally{
+    loading=false;
+  }
+}
+
+function scheduleRefresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer=setTimeout(refreshData,250);
+}
+
+function moveTo(c,name){
+  center={lat:Number(c.lat),lng:Number(c.lng)};
+  placeName=name||("地図中心 "+center.lat.toFixed(5)+","+center.lng.toFixed(5));
+  renderMap();
+  scheduleRefresh();
+}
+
+const map=$("mapWrap");
+map.addEventListener("pointerdown",e=>{
+  if(e.target.closest("button"))return;
+  e.preventDefault();
+  map.setPointerCapture(e.pointerId);
+  const p=project(center.lat,center.lng,zoom);
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,cx:p.x,cy:p.y,moved:false};
+  map.classList.add("dragging");
+});
+map.addEventListener("pointermove",e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>3)drag.moved=true;
+  center=unproject(drag.cx-dx,drag.cy-dy,zoom);
+  placeName="地図で選択した地点";
+  renderMap();
+});
+function endDrag(e){
+  if(!drag||drag.id!==e.pointerId)return;
+  try{map.releasePointerCapture(e.pointerId)}catch(_){}
+  const moved=drag.moved;
+  drag=null;
+  map.classList.remove("dragging");
+  if(moved){
+    $("place").textContent="地図で選択した地点　(半径5km)";
+    scheduleRefresh();
+  }
+}
+map.addEventListener("pointerup",endDrag);
+map.addEventListener("pointercancel",endDrag);
+
+$("zoomIn").addEventListener("click",()=>{zoom=Math.min(17,zoom+1);renderMap()});
+$("zoomOut").addEventListener("click",()=>{zoom=Math.max(8,zoom-1);renderMap()});
+$("refreshBtn").addEventListener("click",refreshData);
+$("kyotoBtn").addEventListener("click",()=>moveTo(START,"京都市付近"));
+
+$("locateBtn").addEventListener("click",()=>{
+  clearError();setStatus("現在地取得中…");
+  if(!navigator.geolocation){showError("このブラウザは現在地に非対応");return}
+  navigator.geolocation.getCurrentPosition(
+    p=>moveTo({lat:p.coords.latitude,lng:p.coords.longitude},"現在地"),
+    e=>{showError("現在地エラー："+e.message);setStatus("現在地を取得できません")},
+    {enableHighAccuracy:true,timeout:12000,maximumAge:30000}
+  );
+});
+
+$("searchForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const q=$("query").value.trim();
+  if(!q)return;
+  clearError();setStatus("日本住所を検索中…");
+  try{
+    const r=await geocode(q);
+    moveTo(r,r.name);
+  }catch(err){
+    showError(err.message||"検索失敗");
+    setStatus("住所検索失敗");
+  }
+});
+
+window.addEventListener("resize",renderMap);
+renderMap();
+refreshData();
 })();
 </script>
 </body>
