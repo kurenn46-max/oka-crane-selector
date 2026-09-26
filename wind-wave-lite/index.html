@@ -90,7 +90,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <div class="card"><div class="label">最大瞬間</div><div class="value" id="gust">-- m/s</div><div class="label">10m高度</div></div>
 <div class="card"><div class="label">波</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
 </div>
-<div class="note">青矢印＝風が流れていく方向。赤点が中心。半径5km内を約2km間隔で表示。</div>
+<div class="note">青矢印＝風が流れていく方向。風は画面全体に表示。青円は中心から半径5kmの目安。</div>
 </section>
 
 <div id="forecastBackdrop"></div>
@@ -191,14 +191,19 @@ function parseCoord(s){
   return Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null;
 }
 function samplePoints(){
-  const arr=[{lat:center.lat,lng:center.lng,n:0,e:0}];
-  [-4,-2,0,2,4].forEach(n=>[-4,-2,0,2,4].forEach(e=>{
-    if(n===0&&e===0)return;
-    if(Math.hypot(n,e)>5)return;
-    const km=Math.hypot(n,e);
-    const br=(Math.atan2(e,n)*180/Math.PI+360)%360;
-    const p=dest(center.lat,center.lng,km,br);
-    arr.push({...p,n,e});
+  const wrap=$("mapWrap");
+  const w=Math.max(320,wrap.clientWidth||320);
+  const h=Math.max(300,wrap.clientHeight||300);
+  const cp=project(center.lat,center.lng,zoom);
+  const arr=[{lat:center.lat,lng:center.lng,screenX:.5,screenY:.5,isCenter:true}];
+  const xs=[.08,.29,.50,.71,.92];
+  const ys=[.10,.30,.50,.70,.90];
+  ys.forEach(y=>xs.forEach(x=>{
+    if(Math.abs(x-.5)<.001&&Math.abs(y-.5)<.001)return;
+    const px=cp.x+(x-.5)*w;
+    const py=cp.y+(y-.5)*h;
+    const p=unproject(px,py,zoom);
+    arr.push({lat:p.lat,lng:p.lng,screenX:x,screenY:y});
   }));
   return arr;
 }
@@ -446,7 +451,7 @@ async function refreshData(){
   loading=true;
   clearError();
   setStatus("この地点の風を取得中…");
-  $("place").textContent=placeName+"　(半径5km)";
+  $("place").textContent=placeName+"　(青円5km)";
   try{
     const ps=samplePoints();
     const rows=await getWind(ps);
@@ -475,7 +480,7 @@ async function refreshData(){
       $("wave").textContent="取得不可";
       $("period").textContent="周期 -- s";
     }
-    setStatus("✅ 地図を動かせます。指を離すと再計算");
+    setStatus("✅ 画面全体の風を表示。地図を動かすと再計算");
   }catch(e){
     showError("データ取得で停止："+(e.message||e));
     setStatus("⚠️ データ取得失敗");
@@ -524,15 +529,27 @@ function endDrag(e){
   if(moved){
     invalidateForecast();
     closeForecastPanel();
-    $("place").textContent="地図で選択した地点　(半径5km)";
+    $("place").textContent="地図で選択した地点　(青円5km)";
     scheduleRefresh();
   }
 }
 map.addEventListener("pointerup",endDrag);
 map.addEventListener("pointercancel",endDrag);
 
-$("zoomIn").addEventListener("click",()=>{zoom=Math.min(17,zoom+1);renderMap()});
-$("zoomOut").addEventListener("click",()=>{zoom=Math.max(8,zoom-1);renderMap()});
+$("zoomIn").addEventListener("click",()=>{
+  zoom=Math.min(17,zoom+1);
+  invalidateForecast();
+  closeForecastPanel();
+  renderMap();
+  scheduleRefresh();
+});
+$("zoomOut").addEventListener("click",()=>{
+  zoom=Math.max(8,zoom-1);
+  invalidateForecast();
+  closeForecastPanel();
+  renderMap();
+  scheduleRefresh();
+});
 $("forecastBtn").addEventListener("click",()=>{
   if(forecastRows.length){$("forecastPlace").textContent=placeName;openForecastPanel();renderForecastList()}
   else loadForecast();
