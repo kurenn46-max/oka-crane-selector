@@ -350,10 +350,12 @@ async function getWaveForecast(){
 function waveForecastAt(i){
   if(!forecastWave||!forecastWave.hourly)return null;
   const model={lat:Number(forecastWave.latitude),lng:Number(forecastWave.longitude)};
-  if(!Number.isFinite(model.lat)||hav(center,model)>5)return null;
+  const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity;
+  if(seaDistance>20)return null;
   return{
     h:forecastWave.hourly.wave_height&&forecastWave.hourly.wave_height[i],
-    period:forecastWave.hourly.wave_period&&forecastWave.hourly.wave_period[i]
+    period:forecastWave.hourly.wave_period&&forecastWave.hourly.wave_period[i],
+    seaDistance
   };
 }
 function applyForecastHour(i,scrollCard){
@@ -376,7 +378,7 @@ function applyForecastHour(i,scrollCard){
 
   const w=waveForecastAt(i);
   $("wave").textContent=w&&Number.isFinite(w.h)?w.h.toFixed(1)+" m":"海域外";
-  $("period").textContent=w&&Number.isFinite(w.period)?"周期 "+w.period.toFixed(1)+" s":"周期 -- s";
+  $("period").textContent=w&&Number.isFinite(w.period)?("周期 "+w.period.toFixed(1)+" s"+(w.seaDistance>5?" / 最寄海域 "+w.seaDistance.toFixed(0)+"km":"")):"周期 -- s";
 
   document.querySelectorAll(".hourCard").forEach(el=>el.classList.toggle("active",Number(el.dataset.index)===i));
   const iso=forecastRows[0].hourly&&forecastRows[0].hourly.time&&forecastRows[0].hourly.time[i];
@@ -406,7 +408,7 @@ function renderForecastList(){
       '<div class="hourWind">'+(Number.isFinite(sp)?sp.toFixed(1):"--")+' m/s</div>'+
       '<div class="hourMeta">'+(Number.isFinite(di)?compass(di)+"から":"--")+
       '<br>瞬 '+(Number.isFinite(gu)?gu.toFixed(1):"--")+' m/s'+
-      (w&&Number.isFinite(w.h)?'<br>波 '+w.h.toFixed(1)+' m':'')+
+      (w&&Number.isFinite(w.h)?'<br>波 '+w.h.toFixed(1)+' m'+(w.seaDistance>5?'（最寄海域）':''):'')+
       '</div>';
     b.addEventListener("click",()=>applyForecastHour(i,false));
     list.appendChild(b);
@@ -464,10 +466,11 @@ async function refreshData(){
     try{
       const w=await getWave();
       const model={lat:Number(w.latitude),lng:Number(w.longitude)};
-      const near=Number.isFinite(model.lat)&&hav(center,model)<=5;
+      const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity;
+      const near=seaDistance<=20;
       const cur=w.current||{};
       $("wave").textContent=near&&Number.isFinite(cur.wave_height)?cur.wave_height.toFixed(1)+" m":"海域外";
-      $("period").textContent=near&&Number.isFinite(cur.wave_period)?"周期 "+cur.wave_period.toFixed(1)+" s":"周期 -- s";
+      $("period").textContent=near&&Number.isFinite(cur.wave_period)?("周期 "+cur.wave_period.toFixed(1)+" s"+(seaDistance>5?" / 最寄海域 "+seaDistance.toFixed(0)+"km":"")):"周期 -- s";
     }catch(_){
       $("wave").textContent="取得不可";
       $("period").textContent="周期 -- s";
