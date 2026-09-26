@@ -32,7 +32,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
     <h1>岡重機 Crane Selector</h1>
     <p class="sub">国産ラフター機種選定 / 公式性能表ベース</p>
   </div>
-  <span class="badge">v0.2</span>
+  <span class="badge">v0.3</span>
 </header>
 
 <section class="card">
@@ -48,7 +48,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 <input id="radius" type="number" inputmode="decimal" min="0" step="0.1" value="10">
 </label>
 <label>メーカー
-<select id="maker"><option value="ANY">全メーカー</option><option value="KATO">KATO</option></select>
+<select id="maker"><option value="ANY">全メーカー</option><option value="TADANO">TADANO</option><option value="KATO">KATO</option></select>
 </label>
 <label>アウトリガー
 <select id="outrigger"><option value="FULL">全張出</option></select>
@@ -63,7 +63,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">現在の公式確認済み登録：1機種</div>
+<div id="summary" class="status">現在の公式確認済み登録：5機種（12 / 13 / 16 / 20 / 25t）</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
@@ -116,7 +116,7 @@ function best(crane,load,rigging,radius){
     if(p && p[1]>=required) hits.push({boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required});
   }
   if(!hits.length) return null;
-  hits.sort((a,b)=>a.capacity-b.capacity || a.boomM-b.boomM);
+  hits.sort((a,b)=>a.boomM-b.boomM || a.capacity-b.capacity);
   return hits[0];
 }
 function select(){
