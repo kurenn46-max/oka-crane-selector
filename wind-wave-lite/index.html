@@ -37,7 +37,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <body>
 <header><h1>OKA Wind & Wave Lite</h1><div class="sub">外部地図ライブラリなし・動作診断版</div><div id="jsState">JavaScript確認中…</div></header>
 <section class="search">
-<form id="searchForm" class="row"><input id="query" placeholder="住所・地名・緯度,経度"><button class="primary" type="submit">検索</button></form>
+<form id="searchForm" class="row"><input id="query" placeholder="住所・地名（例：小浜市堅海）"><button class="primary" type="submit">検索</button></form>
 <div class="actions"><button type="button" id="testBtn">動作テスト</button><button type="button" id="locateBtn">📍現在地</button><button type="button" id="refreshBtn">↻更新</button><button type="button" id="kyotoBtn">京都</button></div>
 <div id="error"></div>
 </section>
@@ -75,13 +75,52 @@ function addWindMarker(p,speed,from){const el=document.createElement("div");el.c
 async function getWind(ps){const u=new URL("https://api.open-meteo.com/v1/forecast");u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));u.searchParams.set("current","wind_speed_10m,wind_direction_10m,wind_gusts_10m");u.searchParams.set("wind_speed_unit","ms");u.searchParams.set("timezone","auto");const r=await fetch(u);if(!r.ok)throw new Error("風API "+r.status);const d=await r.json();return Array.isArray(d)?d:[d]}
 async function getWave(){const u=new URL("https://marine-api.open-meteo.com/v1/marine");u.searchParams.set("latitude",center.lat.toFixed(5));u.searchParams.set("longitude",center.lng.toFixed(5));u.searchParams.set("current","wave_height,wave_period");u.searchParams.set("cell_selection","sea");u.searchParams.set("timezone","auto");const r=await fetch(u);if(!r.ok)throw new Error("波API "+r.status);return r.json()}
 async function refresh(){clearError();setStatus("風データ取得中…");updateBaseMap();try{const ps=points(),rows=await getWind(ps);clearWindMarkers();rows.forEach((x,i)=>{const s=x.current&&x.current.wind_speed_10m,d=x.current&&x.current.wind_direction_10m;if(Number.isFinite(s)&&Number.isFinite(d))addWindMarker(ps[i],s,d)});const c=rows[0]&&rows[0].current||{};$("wind").textContent=Number.isFinite(c.wind_speed_10m)?c.wind_speed_10m.toFixed(1)+" m/s":"-- m/s";$("windDir").textContent=Number.isFinite(c.wind_direction_10m)?compass(c.wind_direction_10m)+"から":"--";$("gust").textContent=Number.isFinite(c.wind_gusts_10m)?c.wind_gusts_10m.toFixed(1)+" m/s":"-- m/s";setStatus("風OK。波データ確認中…");try{const w=await getWave(),model={lat:Number(w.latitude),lng:Number(w.longitude)},near=Number.isFinite(model.lat)&&hav({lat:center.lat,lng:center.lng},model)<=5,cur=w.current||{};$("wave").textContent=near&&Number.isFinite(cur.wave_height)?cur.wave_height.toFixed(1)+" m":"海域外";$("period").textContent=near&&Number.isFinite(cur.wave_period)?"周期 "+cur.wave_period.toFixed(1)+" s":"周期 -- s"}catch(_){$("wave").textContent="取得不可";$("period").textContent="周期 -- s"}setStatus("✅ 表示更新完了")}catch(e){showError("データ取得で停止："+(e.message||e));setStatus("⚠️ データ取得失敗")}}
-async function geocode(q){const c=parseCoord(q);if(c)return{...c,name:q};const u=new URL("https://nominatim.openstreetmap.org/search");u.searchParams.set("format","jsonv2");u.searchParams.set("q",q);u.searchParams.set("limit","1");u.searchParams.set("countrycodes","jp");u.searchParams.set("accept-language","ja");const r=await fetch(u,{headers:{"Accept":"application/json"}});if(!r.ok)throw new Error("住所検索 "+r.status);const a=await r.json();if(!a.length)throw new Error("地点が見つかりません");return{lat:Number(a[0].lat),lng:Number(a[0].lon),name:a[0].display_name}}
+function normalizeJaAddress(q){
+  return q.replace(/[〒]/g,"").replace(/\\b\\d{3}-?\\d{4}\\b/g,"").replace(/[　\\s]+/g,"").replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).trim();
+}
+function addressQueries(q){
+  const n=normalizeJaAddress(q);
+  const out=[n];
+  const noTail=n.replace(/(?:\\d+(?:[-ー‐–—]\\d+)*)$/,"");
+  if(noTail&&noTail!==n)out.push(noTail);
+  const spaced=noTail.replace(/(都|道|府|県)/,"$1 ").replace(/(市|区|町|村)/g,"$1 ").trim();
+  if(spaced&&!out.includes(spaced))out.push(spaced);
+  return [...new Set(out.filter(Boolean))];
+}
+async function gsiSearch(q){
+  const u=new URL("https://msearch.gsi.go.jp/address-search/AddressSearch");
+  u.searchParams.set("q",q);
+  const r=await fetch(u,{headers:{"Accept":"application/json"}});
+  if(!r.ok)throw new Error("GSI "+r.status);
+  const a=await r.json();
+  if(!Array.isArray(a)||!a.length)return null;
+  const c=a[0]&&a[0].geometry&&a[0].geometry.coordinates;
+  if(!c||c.length<2)return null;
+  return{lat:Number(c[1]),lng:Number(c[0]),name:(a[0].properties&&a[0].properties.title)||q};
+}
+async function nominatimSearch(q){
+  const u=new URL("https://nominatim.openstreetmap.org/search");
+  u.searchParams.set("format","jsonv2");u.searchParams.set("q",q);u.searchParams.set("limit","1");
+  u.searchParams.set("countrycodes","jp");u.searchParams.set("accept-language","ja");
+  const r=await fetch(u,{headers:{"Accept":"application/json"}});
+  if(!r.ok)return null;
+  const a=await r.json();
+  if(!a.length)return null;
+  return{lat:Number(a[0].lat),lng:Number(a[0].lon),name:a[0].display_name};
+}
+async function geocode(q){
+  const c=parseCoord(q);if(c)return{...c,name:q};
+  const qs=addressQueries(q);
+  for(const x of qs){try{const g=await gsiSearch(x);if(g)return g}catch(_){}}
+  for(const x of qs){try{const n=await nominatimSearch(x);if(n)return n}catch(_){}}
+  throw new Error("地点が見つかりません。地名だけ（例：小浜市堅海）でも試せます");
+}
 async function setCenter(c,name){center={lat:Number(c.lat),lng:Number(c.lng)};placeName=name||center.lat.toFixed(5)+","+center.lng.toFixed(5);await refresh()}
 $("testBtn").addEventListener("click",()=>{testCount++;$("jsState").textContent="✅ ボタン動作OK "+testCount+"回";setStatus("ボタンは正常に反応しています")});
 $("refreshBtn").addEventListener("click",refresh);
 $("kyotoBtn").addEventListener("click",()=>setCenter(START,"京都市付近"));
 $("locateBtn").addEventListener("click",()=>{clearError();setStatus("現在地取得中…");if(!navigator.geolocation){showError("このブラウザは現在地に非対応");return}navigator.geolocation.getCurrentPosition(p=>setCenter({lat:p.coords.latitude,lng:p.coords.longitude},"現在地"),e=>{showError("現在地エラー："+e.message);setStatus("現在地を取得できません")},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})});
-$("searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("query").value.trim();if(!q)return;clearError();setStatus("住所検索中…");try{const r=await geocode(q);await setCenter(r,r.name)}catch(err){showError(err.message||"検索失敗");setStatus("住所検索失敗")}});
+$("searchForm").addEventListener("submit",async e=>{e.preventDefault();const q=$("query").value.trim();if(!q)return;clearError();setStatus("日本住所を検索中…");try{const r=await geocode(q);await setCenter(r,r.name)}catch(err){showError(err.message||"検索失敗");setStatus("住所検索失敗")}});
 updateBaseMap();refresh();
 })();
 </script>
