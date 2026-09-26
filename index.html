@@ -93,7 +93,7 @@ function resolveHook(crane,ch,payload){
     if(!opt)return null;
     return {weight:opt.hookWeightT,label:opt.label};
   }
-  return {weight:(ch.hookWeightT ?? crane.hookWeightT ?? 0),label:null};
+  return {weight:(ch.hookWeightT ?? crane.hookWeightT ?? 0),label:(ch.hookLabel ?? null)};
 }
 function best(crane,load,rigging,radius){
   const hits=[];
