@@ -2157,7 +2157,6 @@ const CRANES = [
     "charts": [
       {
         "boomM": 9.7,
-        "hookWeightT": 0.46,
         "points": [
           [
             2.5,
@@ -2195,11 +2194,11 @@ const CRANES = [
             6.5,
             24
           ]
-        ]
+        ],
+        "hookWeightT": 0.46
       },
       {
         "boomM": 16,
-        "hookWeightT": 0.46,
         "points": [
           [
             2.5,
@@ -2265,11 +2264,11 @@ const CRANES = [
             13,
             7.1
           ]
-        ]
+        ],
+        "hookWeightT": 0.46
       },
       {
         "boomM": 22.3,
-        "hookWeightT": 0.3,
         "points": [
           [
             2.5,
@@ -2347,11 +2346,11 @@ const CRANES = [
             18,
             3
           ]
-        ]
+        ],
+        "hookWeightT": 0.3
       },
       {
         "boomM": 28.6,
-        "hookWeightT": 0.3,
         "points": [
           [
             2.5,
@@ -2441,11 +2440,11 @@ const CRANES = [
             24,
             1.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.3
       },
       {
         "boomM": 34.9,
-        "hookWeightT": 0.3,
         "points": [
           [
             3.5,
@@ -2539,11 +2538,11 @@ const CRANES = [
             30,
             0.9
           ]
-        ]
+        ],
+        "hookWeightT": 0.3
       },
       {
         "boomM": 38.05,
-        "hookWeightT": 0.3,
         "points": [
           [
             4,
@@ -2637,11 +2636,11 @@ const CRANES = [
             32,
             0.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.3
       },
       {
         "boomM": 41.2,
-        "hookWeightT": 0.3,
         "points": [
           [
             5,
@@ -2731,13 +2730,17 @@ const CRANES = [
             34,
             0.6
           ]
-        ]
+        ],
+        "hookWeightT": 0.3
       }
     ],
-    "audit": "official-7.4m-all-around",
+    "audit": "official-PDF-7.4m-all-around-verified",
     "auditStatus": "ACTIVE",
     "auditNote": "TADANO公式 定格総荷重表：最大張出7.4m・全周を全掲載セル再照合済み",
-    "auditVerified": "2026-09-26"
+    "auditVerified": "2026-09-26",
+    "auditedAt": "2026-09-26",
+    "configLabel": "最大張出7.4m・全周",
+    "hookNote": "9.7/16.0mは51tフック460kg、22.3m以降は25tフック300kgとして判定"
   },
   {
     "manufacturer": "TADANO",
@@ -2756,7 +2759,6 @@ const CRANES = [
     "charts": [
       {
         "boomM": 10.3,
-        "hookWeightT": 0.31,
         "points": [
           [
             1.8,
@@ -2806,11 +2808,11 @@ const CRANES = [
             7,
             23.1
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 14.1,
-        "hookWeightT": 0.31,
         "points": [
           [
             1.8,
@@ -2870,17 +2872,17 @@ const CRANES = [
           ],
           [
             10,
-            14
+            14.5
           ],
           [
             11,
-            11.6
+            12.5
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 17.8,
-        "hookWeightT": 0.31,
         "points": [
           [
             1.8,
@@ -2940,25 +2942,25 @@ const CRANES = [
           ],
           [
             10,
-            14.5
+            14.9
           ],
           [
             11,
-            12.1
+            12.9
           ],
           [
             12,
-            10.2
+            11.3
           ],
           [
             14,
             7.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 25.4,
-        "hookWeightT": 0.31,
         "points": [
           [
             1.8,
@@ -3018,15 +3020,15 @@ const CRANES = [
           ],
           [
             10,
-            13.5
+            14.1
           ],
           [
             11,
-            11.1
+            12.1
           ],
           [
             12,
-            10
+            10.5
           ],
           [
             14,
@@ -3048,11 +3050,11 @@ const CRANES = [
             22,
             3.4
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 33.6,
-        "hookWeightT": 0.31,
         "points": [
           [
             2.5,
@@ -3150,12 +3152,16 @@ const CRANES = [
             30,
             1.8
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 37.3,
-        "hookWeightT": 0.31,
         "points": [
+          [
+            3,
+            11
+          ],
           [
             3.5,
             11
@@ -3252,12 +3258,16 @@ const CRANES = [
             34,
             0.9
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 40,
-        "hookWeightT": 0.31,
         "points": [
+          [
+            3.5,
+            7.6
+          ],
           [
             4,
             7.6
@@ -3354,12 +3364,16 @@ const CRANES = [
             36,
             0.5
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       },
       {
         "boomM": 41.2,
-        "hookWeightT": 0.31,
         "points": [
+          [
+            3.5,
+            7.2
+          ],
           [
             4,
             7.2
@@ -3451,14 +3465,22 @@ const CRANES = [
           [
             34,
             0.6
+          ],
+          [
+            38,
+            0.5
           ]
-        ]
+        ],
+        "hookWeightT": 0.31
       }
     ],
-    "audit": "official-7.6m-360",
+    "audit": "official-PDF-7.6m-360-verified",
     "auditStatus": "ACTIVE",
     "auditNote": "TADANO公式 定格総荷重表：最大張出7.6m・360°を全掲載セル再照合済み",
-    "auditVerified": "2026-09-26"
+    "auditVerified": "2026-09-26",
+    "auditedAt": "2026-09-26",
+    "configLabel": "最大張出7.6m・360°標準性能",
+    "hookNote": "ブーム作業は35t主巻フック310kgで判定。60t吊は重荷重用アタッチメント付き"
   },
   {
     "manufacturer": "TADANO",
@@ -3477,7 +3499,6 @@ const CRANES = [
     "charts": [
       {
         "boomM": 9.8,
-        "hookWeightT": 0.34,
         "points": [
           [
             2.1,
@@ -3519,11 +3540,11 @@ const CRANES = [
             6.5,
             29.4
           ]
-        ]
+        ],
+        "hookWeightT": 0.68
       },
       {
         "boomM": 16.6,
-        "hookWeightT": 0.34,
         "points": [
           [
             2.8,
@@ -3589,11 +3610,11 @@ const CRANES = [
             13,
             8.45
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       },
       {
         "boomM": 23.5,
-        "hookWeightT": 0.34,
         "points": [
           [
             2.8,
@@ -3675,11 +3696,11 @@ const CRANES = [
             20,
             2.7
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       },
       {
         "boomM": 30.3,
-        "hookWeightT": 0.34,
         "points": [
           [
             2.8,
@@ -3777,11 +3798,11 @@ const CRANES = [
             27,
             1.15
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       },
       {
         "boomM": 37.2,
-        "hookWeightT": 0.34,
         "points": [
           [
             3.5,
@@ -3883,11 +3904,11 @@ const CRANES = [
             32,
             0.6
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       },
       {
         "boomM": 41.2,
-        "hookWeightT": 0.34,
         "points": [
           [
             4,
@@ -3943,7 +3964,7 @@ const CRANES = [
           ],
           [
             14,
-            7.55
+            8.1
           ],
           [
             16,
@@ -3988,16 +4009,12 @@ const CRANES = [
           [
             33,
             0.65
-          ],
-          [
-            34,
-            0.5
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       },
       {
         "boomM": 44,
-        "hookWeightT": 0.34,
         "points": [
           [
             4.5,
@@ -4048,6 +4065,10 @@ const CRANES = [
             8
           ],
           [
+            14,
+            7.55
+          ],
+          [
             16,
             6.7
           ],
@@ -4095,13 +4116,17 @@ const CRANES = [
             34,
             0.6
           ]
-        ]
+        ],
+        "hookWeightT": 0.34
       }
     ],
-    "audit": "official-7.6m-all-around",
+    "audit": "official-PDF-7.6m-all-around-verified",
     "auditStatus": "ACTIVE",
     "auditNote": "TADANO公式 定格総荷重表：最大張出7.6m・全周を全掲載セル再照合済み",
-    "auditVerified": "2026-09-26"
+    "auditVerified": "2026-09-26",
+    "auditedAt": "2026-09-26",
+    "configLabel": "最大張出7.6m・全周標準性能",
+    "hookNote": "9.8mブームは標準フック35t×2（680kg）・重荷重装置。16.6m以降は35tフック340kg"
   },
   {
     "manufacturer": "TADANO",
@@ -4170,7 +4195,7 @@ const CRANES = [
             32.3
           ]
         ],
-        "hookWeightT": 0.43
+        "hookWeightT": 0.73
       },
       {
         "boomM": 13.7,
@@ -5223,9 +5248,11 @@ const CRANES = [
         "hookWeightT": 0.43
       }
     ],
-    "audit": "official-7.8m-360",
-    "hookNote": "50t hook assumed (430kg); official table also permits 35t hook 300kg depending configuration",
+    "audit": "official-PDF-CW4.0t-7.8m-360-verified",
+    "hookNote": "10.2mブームは重荷重側として50tフック430kg＋35tフック300kgを保守的に計上。13.7m以降は50tフック430kgで判定",
     "auditStatus": "HOLD",
-    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。"
+    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。",
+    "auditedAt": "2026-09-26",
+    "configLabel": "カウンタウエイト4.0t・最大張出7.8m・360°"
   }
 ];
