@@ -63,15 +63,15 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">選定有効：5機種（12 / 13 / 16 / 20 / 25t）／ 50・60・70・100tは公式表再監査中</div>
+<div id="summary" class="status">選定有効：8機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70t）／ 100tは公式表再監査中</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25t</b><br>
-<b>再監査中：50 / 60 / 70 / 100t</b><br>
-大型4機種は公式定格総荷重表を全ブーム長・全半径で再照合完了後に選定へ戻します。</div>
+<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70t</b><br>
+<b>公式全表再照合済み：GR-500N-1 / GR-600N-3 / GR-700N-1</b><br>
+<b>再監査中：100t（GR-1000N-1）</b></div>
 </section>
 
 <section class="card note">
@@ -117,7 +117,8 @@ function select(){
   }
   $("results").innerHTML=out.map(({c,h})=>{
     const util=h.required/h.capacity*100, margin=h.capacity-h.required;
-    return '<div class="result"><h3>'+c.manufacturer+' '+c.model+' <span class="ok">○</span></h3>'+
+    const verified=c.auditVerified ? ' <span class="ok">公式照合済み✓</span>' : '';
+    return '<div class="result"><h3>'+c.manufacturer+' '+c.model+' <span class="ok">○</span>'+verified+'</h3>'+
     '<div class="meta">'+
     '<div>クラス：<b>'+c.classT+'t</b></div>'+
     '<div>ブーム：<b>'+h.boomM.toFixed(2)+'m</b></div>'+
@@ -128,7 +129,8 @@ function select(){
     '<div>使用率：<b>'+util.toFixed(1)+'%</b></div>'+
     '<div>余裕：<b>'+margin.toFixed(2)+'t</b></div>'+
     '<div>アウトリガー：<b>全張出 '+c.outriggerWidthM+'m</b></div>'+
-    '</div><div class="source">出典：<a href="'+c.source.url+'" target="_blank" rel="noopener">'+c.source.title+'</a> / '+c.source.page+'</div></div>';
+    '</div><div class="source">出典：<a href="'+c.source.url+'" target="_blank" rel="noopener">'+c.source.title+'</a> / '+c.source.page+
+    (c.auditVerified ? ' / 照合日 '+c.auditVerified : '')+'</div></div>';
   }).join("");
 }
 $("selectBtn").addEventListener("click",select);
