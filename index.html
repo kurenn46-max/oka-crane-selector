@@ -63,15 +63,15 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">選定有効：8機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70t）／ 100tは公式表再監査中</div>
+<div id="summary" class="status">選定有効：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70t</b><br>
-<b>公式全表再照合済み：GR-500N-1 / GR-600N-3 / GR-700N-1</b><br>
-<b>再監査中：100t（GR-1000N-1）</b></div>
+<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
+<b>大型公式全表再照合済み：GR-500N-1 / GR-600N-3 / GR-700N-1 / GR-1000N-1</b><br>
+GR-1000N-1は4.0tカウンタウエイト・全張出7.8m・360°条件。50t超の吊荷はフック／重荷重装置構成確認が必要なため自動判定対象外です。</div>
 </section>
 
 <section class="card note">
@@ -88,13 +88,26 @@ const $=id=>document.getElementById(id);
 function ceilPoint(points,r){
   return [...points].sort((a,b)=>a[0]-b[0]).find(p=>p[0]>=r)||null;
 }
+function resolveHook(crane,ch,payload){
+  if(crane.hookRule?.type==="payload_threshold"){
+    const opt=crane.hookRule.options.find(x=>payload<=x.maxPayloadT);
+    if(!opt)return null;
+    return {weight:opt.hookWeightT,label:opt.label};
+  }
+  return {weight:(ch.hookWeightT ?? crane.hookWeightT ?? 0),label:null};
+}
 function best(crane,load,rigging,radius){
   const hits=[];
+  const payload=load+rigging;
   for(const ch of crane.charts){
-    const hookWeight=(ch.hookWeightT ?? crane.hookWeightT ?? 0);
-    const required=load+rigging+(crane.capacityIncludesHook?hookWeight:0);
+    const hook=resolveHook(crane,ch,payload);
+    if(!hook)continue;
+    const required=payload+(crane.capacityIncludesHook?hook.weight:0);
     const p=ceilPoint(ch.points,radius);
-    if(p && p[1]>=required) hits.push({boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required,hookWeight});
+    if(p && p[1]>=required) hits.push({
+      boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required,
+      hookWeight:hook.weight,hookLabel:hook.label
+    });
   }
   if(!hits.length) return null;
   hits.sort((a,b)=>a.boomM-b.boomM || a.capacity-b.capacity);
@@ -125,7 +138,8 @@ function select(){
     '<div>性能表半径：<b>'+h.chartRadius.toFixed(1)+'m</b></div>'+
     '<div>定格総荷重（フック・吊具込み）：<b>'+h.capacity.toFixed(2)+'t</b></div>'+
     '<div>判定荷重：<b>'+h.required.toFixed(2)+'t</b></div>'+
-    '<div>計上フック：<b>'+h.hookWeight.toFixed(2)+'t</b></div>'+
+    '<div>計上フック：<b>'+(h.hookLabel ? h.hookLabel+' / ' : '')+h.hookWeight.toFixed(2)+'t</b></div>'+
+    (c.counterweightT!=null ? '<div>カウンタウエイト：<b>'+c.counterweightT.toFixed(1)+'t</b></div>' : '')+
     '<div>使用率：<b>'+util.toFixed(1)+'%</b></div>'+
     '<div>余裕：<b>'+margin.toFixed(2)+'t</b></div>'+
     '<div>アウトリガー：<b>全張出 '+c.outriggerWidthM+'m</b></div>'+
