@@ -18,9 +18,14 @@ button{background:#17374a;color:#fff;padding:10px 12px;font-weight:800;touch-act
 button.primary{background:#58bcff;color:#00131f;border:0}
 .actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}.actions button{font-size:12px;padding:8px 3px}
 #status{padding:7px 10px;background:#101d26;color:#d5e4ee;font-size:12px;border-bottom:1px solid #28404f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.modelRow{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;margin-top:7px}
+.modelRow{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-top:7px}
 .modelRow label{font-size:11px;color:#a9bdca;font-weight:800}
 .modelRow select{width:100%;min-width:0;background:#102a3b;color:#fff;border:1px solid #345064;border-radius:9px;padding:8px 9px;font-size:13px}
+#compareBtn{padding:8px 9px;font-size:11px;border-radius:9px;white-space:nowrap}
+#compareBtn.active{background:#58bcff;color:#00131f;border-color:#58bcff}
+.marker.warn .arrow{color:#f4c84a}.marker.warn .tag{border-color:#f4c84a;background:rgba(91,69,0,.92)}
+.marker.bad .arrow{color:#ff7474}.marker.bad .tag{border-color:#ff7474;background:rgba(105,30,30,.94)}
+.compareLegend{font-size:9px;color:#a9bdca;margin-top:3px}
 .modelNote{font-size:9px;color:#9eb5c3;margin-top:4px}
 #mapWrap{position:relative;min-height:0;background:#183247;overflow:hidden;touch-action:none;user-select:none}
 #tiles,#windLayer{position:absolute;inset:0;overflow:hidden}
@@ -82,8 +87,10 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <option value="jma_msm">JMA MSM（約5km）</option>
   <option value="ecmwf_ifs">ECMWF IFS（約9km）</option>
 </select>
+<button type="button" id="compareBtn">3モデル比較 OFF</button>
 </div>
 <div id="modelNote" class="modelNote">Open-Meteo Best Match</div>
+<div id="compareSummary" class="compareLegend"></div>
 <div id="error"></div>
 </section>
 <div id="status">起動しています…</div>
@@ -143,6 +150,7 @@ const MODEL_INFO={
   ecmwf_ifs:{label:"ECMWF IFS",param:"ecmwf_ifs",maxHours:168,gust:true,note:"ECMWF IFS・約9km・7日表示"}
 };
 let activeModel="best_match";
+let compareMode=false;
 
 function setStatus(s){$("status").textContent=s}
 function showError(s){$("error").textContent=s;$("error").style.display="block"}
@@ -200,6 +208,27 @@ function updateModelUI(){
   });
   if(forecastRange>m.maxHours)forecastRange=m.maxHours;
 }
+function angleDiff(a,b){
+  const d=Math.abs((((a-b)+540)%360)-180);
+  return d;
+}
+function comparisonLevel(values){
+  const v=values.filter(x=>Number.isFinite(x.speed)&&Number.isFinite(x.dir));
+  if(v.length<3)return{level:"",speedSpread:null,dirSpread:null};
+  const speeds=v.map(x=>x.speed);
+  const speedSpread=Math.max(...speeds)-Math.min(...speeds);
+  let dirSpread=0;
+  for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)dirSpread=Math.max(dirSpread,angleDiff(v[i].dir,v[j].dir));
+  if(speedSpread>=3 || dirSpread>=70)return{level:"bad",speedSpread,dirSpread};
+  if(speedSpread>=1.5 || dirSpread>=35)return{level:"warn",speedSpread,dirSpread};
+  return{level:"",speedSpread,dirSpread};
+}
+function updateCompareButton(){
+  $("compareBtn").classList.toggle("active",compareMode);
+  $("compareBtn").textContent=compareMode?"3モデル比較 ON":"3モデル比較 OFF";
+  if(!compareMode)$("compareSummary").textContent="";
+}
+
 
 function project(lat,lng,z){
   const scale=TILE*Math.pow(2,z);
@@ -299,7 +328,7 @@ function renderWindMarkers(){
     const sx=w/2+(p.x-cp.x), sy=h/2+(p.y-cp.y);
     if(sx<-70||sx>w+70||sy<-70||sy>h+70)return;
     const el=document.createElement("div");
-    el.className="marker";
+    el.className="marker"+(x.compareLevel?(" "+x.compareLevel):"");
     el.style.left=sx+"px"; el.style.top=sy+"px";
     const to=(x.dir+180)%360;
     el.innerHTML='<div class="arrow" style="transform:rotate('+to+'deg)">↑</div><div class="tag">'+x.speed.toFixed(1)+' m/s</div>';
@@ -362,6 +391,48 @@ async function getWind(ps){
   const d=await r.json();
   return Array.isArray(d)?d:[d];
 }
+async function getWindForModel(ps,modelKey){
+  const m=MODEL_INFO[modelKey]||MODEL_INFO.best_match;
+  const u=new URL("https://api.open-meteo.com/v1/forecast");
+  u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));
+  u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));
+  u.searchParams.set("hourly","wind_speed_10m,wind_direction_10m");
+  u.searchParams.set("forecast_hours","1");
+  u.searchParams.set("models",m.param);
+  u.searchParams.set("wind_speed_unit","ms");
+  u.searchParams.set("timezone","auto");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error(m.label+" 比較 "+r.status);
+  const d=await r.json();
+  return Array.isArray(d)?d:[d];
+}
+async function getThreeModelComparison(ps){
+  const keys=["best_match","jma_msm","ecmwf_ifs"];
+  const rows=await Promise.all(keys.map(k=>getWindForModel(ps,k)));
+  return keys.map((key,idx)=>({key,rows:rows[idx]}));
+}
+function attachComparison(samples,comparison){
+  if(!comparison)return{ok:0,warn:0,bad:0};
+  let ok=0,warn=0,bad=0;
+  samples.forEach((samp,i)=>{
+    const values=comparison.map(set=>{
+      const x=set.rows[i]||{};
+      return{
+        speed:x.hourly&&x.hourly.wind_speed_10m&&x.hourly.wind_speed_10m[0],
+        dir:x.hourly&&x.hourly.wind_direction_10m&&x.hourly.wind_direction_10m[0]
+      };
+    });
+    const c=comparisonLevel(values);
+    samp.compareLevel=c.level;
+    samp.speedSpread=c.speedSpread;
+    samp.dirSpread=c.dirSpread;
+    if(c.level==="bad")bad++;
+    else if(c.level==="warn")warn++;
+    else if(c.speedSpread!==null)ok++;
+  });
+  return{ok,warn,bad};
+}
+
 async function getWave(){
   const u=new URL("https://marine-api.open-meteo.com/v1/marine");
   u.searchParams.set("latitude",center.lat.toFixed(5));
@@ -421,7 +492,8 @@ function applyForecastHour(i,scrollCard){
     lng:ps[k]&&ps[k].lng,
     speed:x.hourly&&x.hourly.wind_speed_10m&&x.hourly.wind_speed_10m[i],
     dir:x.hourly&&x.hourly.wind_direction_10m&&x.hourly.wind_direction_10m[i],
-    gust:x.hourly&&x.hourly.wind_gusts_10m&&x.hourly.wind_gusts_10m[i]
+    gust:x.hourly&&x.hourly.wind_gusts_10m&&x.hourly.wind_gusts_10m[i],
+    compareLevel:""
   }));
   renderWindMarkers();
 
@@ -475,7 +547,7 @@ async function loadForecast(){
   clearError();
   $("forecastPlace").textContent=placeName;
   openForecastPanel();
-  setStatus("時間予報を取得中…");
+  setStatus("時間予報を取得中…（比較色は現在値のみ）");
   $("forecastList").innerHTML='<div class="label" style="padding:14px">予報を読み込み中…</div>';
   try{
     const ps=samplePoints();
@@ -504,13 +576,23 @@ async function refreshData(){
   $("place").textContent=placeName+"　(青円5km)";
   try{
     const ps=samplePoints();
-    const rows=await getWind(ps);
+    const comparePromise=compareMode?getThreeModelComparison(ps).catch(()=>null):Promise.resolve(null);
+    const [rows,comparison]=await Promise.all([getWind(ps),comparePromise]);
     windSamples=rows.map((x,i)=>({
       lat:ps[i].lat,lng:ps[i].lng,
       speed:x.hourly&&x.hourly.wind_speed_10m&&x.hourly.wind_speed_10m[0],
       dir:x.hourly&&x.hourly.wind_direction_10m&&x.hourly.wind_direction_10m[0],
-      gust:x.hourly&&x.hourly.wind_gusts_10m&&x.hourly.wind_gusts_10m[0]
+      gust:x.hourly&&x.hourly.wind_gusts_10m&&x.hourly.wind_gusts_10m[0],
+      compareLevel:""
     }));
+    if(compareMode){
+      const sum=attachComparison(windSamples,comparison);
+      $("compareSummary").textContent=comparison
+        ?("比較：一致 "+sum.ok+" / 注意 "+sum.warn+" / 大差 "+sum.bad+"　黄・赤ほどモデル差が大きい")
+        :"3モデル比較データを取得できませんでした";
+    }else{
+      $("compareSummary").textContent="";
+    }
     renderWindMarkers();
 
     const c=windSamples[0]||{};
@@ -530,7 +612,7 @@ async function refreshData(){
       $("wave").textContent="取得不可";
       $("period").textContent="周期 -- s";
     }
-    setStatus("✅ "+modelInfo().label+"：画面全体の風を表示");
+    setStatus(compareMode?("✅ "+modelInfo().label+"表示＋3モデル差分"):("✅ "+modelInfo().label+"：画面全体の風を表示"));
   }catch(e){
     showError("データ取得で停止："+(e.message||e));
     setStatus("⚠️ データ取得失敗");
@@ -607,6 +689,13 @@ $("modelSelect").addEventListener("change",()=>{
   updateModelUI();
   refreshData();
 });
+$("compareBtn").addEventListener("click",()=>{
+  compareMode=!compareMode;
+  updateCompareButton();
+  invalidateForecast();
+  closeForecastPanel();
+  refreshData();
+});
 $("forecastBtn").addEventListener("click",()=>{
   if(forecastRows.length){$("forecastPlace").textContent=placeName;openForecastPanel();renderForecastList()}
   else loadForecast();
@@ -658,6 +747,7 @@ $("searchForm").addEventListener("submit",async e=>{
 
 window.addEventListener("resize",renderMap);
 updateModelUI();
+updateCompareButton();
 renderMap();
 refreshData();
 })();
