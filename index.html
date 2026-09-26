@@ -32,7 +32,7 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
     <h1>岡重機 Crane Selector</h1>
     <p class="sub">国産ラフター機種選定 / 公式性能表ベース</p>
   </div>
-  <span class="badge">v0.3</span>
+  <span class="badge">v0.5 精査版</span>
 </header>
 
 <section class="card">
@@ -63,15 +63,14 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">選定有効：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
+<div id="summary" class="status">公式性能表 精査済み：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>選定有効：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
-<b>大型公式全表再照合済み：GR-500N-1 / GR-600N-3 / GR-700N-1 / GR-1000N-1</b><br>
-GR-1000N-1は4.0tカウンタウエイト・全張出7.8m・360°条件。50t超の吊荷はフック／重荷重装置構成確認が必要なため自動判定対象外です。</div>
+<div class="pending"><b>公式表精査済み：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
+現在は各機種の「最大アウトリガー・全周/360°」を基準に選定。100tはCW4.0t条件です。</div>
 </section>
 
 <section class="card note">
@@ -143,7 +142,10 @@ function select(){
     '<div>使用率：<b>'+util.toFixed(1)+'%</b></div>'+
     '<div>余裕：<b>'+margin.toFixed(2)+'t</b></div>'+
     '<div>アウトリガー：<b>全張出 '+c.outriggerWidthM+'m</b></div>'+
-    '</div><div class="source">出典：<a href="'+c.source.url+'" target="_blank" rel="noopener">'+c.source.title+'</a> / '+c.source.page+
+    '<div>性能表条件：<b>'+(c.configLabel||'最大張出・全周')+'</b></div>'+
+    '</div>'+
+    (c.hookNote?'<div class="source"><b>フック条件：</b>'+c.hookNote+'</div>':'')+
+    '<div class="source">出典：<a href="'+c.source.url+'" target="_blank" rel="noopener">'+c.source.title+'</a> / '+c.source.page+
     (c.auditVerified ? ' / 照合日 '+c.auditVerified : '')+'</div></div>';
   }).join("");
 }
