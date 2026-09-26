@@ -144,6 +144,7 @@ let center={...START}, placeName="京都市付近", zoom=13;
 let windSamples=[];
 let drag=null, loading=false, refreshTimer=null;
 let forecastRows=[], forecastWave=null, forecastRange=24, forecastIndex=null, forecastLoading=false;
+let selectedForecastTime=null, selectedForecastOffset=null;
 const MODEL_INFO={
   best_match:{label:"Best Match（自動）",param:"best_match",maxHours:168,gust:true,note:"Open-Meteoが地点ごとに最適モデルを自動選択"},
   jma_msm:{label:"JMA MSM",param:"jma_msm",maxHours:96,gust:false,note:"気象庁 MSM・約5km・約4日先まで"},
@@ -179,8 +180,12 @@ function closeForecastPanel(){
   $("forecastBackdrop").classList.remove("open");
   $("forecastPanel").classList.remove("open");
 }
-function invalidateForecast(){
+function invalidateForecast(keepSelection=false){
   forecastRows=[];forecastWave=null;forecastIndex=null;
+  if(!keepSelection){
+    selectedForecastTime=null;
+    selectedForecastOffset=null;
+  }
 }
 function modelInfo(){return MODEL_INFO[activeModel]||MODEL_INFO.best_match}
 function windVars(){
@@ -487,6 +492,10 @@ function applyForecastHour(i,scrollCard){
   if(!forecastRows.length)return;
   const ps=samplePoints();
   forecastIndex=i;
+  selectedForecastOffset=i;
+  selectedForecastTime=forecastRows[0]&&forecastRows[0].hourly&&forecastRows[0].hourly.time
+    ? forecastRows[0].hourly.time[i]
+    : selectedForecastTime;
   windSamples=forecastRows.map((x,k)=>({
     lat:ps[k]&&ps[k].lat,
     lng:ps[k]&&ps[k].lng,
@@ -557,9 +566,17 @@ async function loadForecast(){
     ]);
     forecastRows=rows;
     forecastWave=wave;
-    forecastIndex=null;
+    let keepIndex=null;
+    const times=forecastRows[0]&&forecastRows[0].hourly&&forecastRows[0].hourly.time;
+    if(selectedForecastTime&&times){
+      const exact=times.indexOf(selectedForecastTime);
+      if(exact>=0)keepIndex=exact;
+      else if(Number.isInteger(selectedForecastOffset)&&selectedForecastOffset<times.length)keepIndex=selectedForecastOffset;
+    }
+    forecastIndex=keepIndex;
     renderForecastList();
-    setStatus("予報を選ぶと地図の矢印も切り替わります");
+    if(keepIndex!==null)applyForecastHour(keepIndex,false);
+    else setStatus("予報を選ぶと地図の矢印も切り替わります");
   }catch(e){
     $("forecastList").innerHTML='<div class="label" style="padding:14px">予報を取得できません</div>';
     showError("予報取得エラー："+(e.message||e));
@@ -568,6 +585,46 @@ async function loadForecast(){
     forecastLoading=false;
   }
 }
+async function refreshSelectedForecast(){
+  if(!selectedForecastTime||forecastLoading){
+    refreshData();
+    return;
+  }
+  forecastLoading=true;
+  clearError();
+  setStatus("選択中の予報時刻を新しい場所で取得中…");
+  $("place").textContent=placeName+"　(青円5km)";
+  try{
+    const ps=samplePoints();
+    const [rows,wave]=await Promise.all([
+      getWindForecast(ps),
+      getWaveForecast().catch(()=>null)
+    ]);
+    forecastRows=rows;
+    forecastWave=wave;
+    const times=forecastRows[0]&&forecastRows[0].hourly&&forecastRows[0].hourly.time;
+    let target=-1;
+    if(times){
+      target=times.indexOf(selectedForecastTime);
+      if(target<0&&Number.isInteger(selectedForecastOffset)&&selectedForecastOffset<times.length){
+        target=selectedForecastOffset;
+      }
+    }
+    if(target>=0){
+      applyForecastHour(target,false);
+    }else{
+      selectedForecastTime=null;
+      selectedForecastOffset=null;
+      refreshData();
+    }
+  }catch(e){
+    showError("予報取得エラー："+(e.message||e));
+    setStatus("⚠️ 選択時刻の予報取得失敗");
+  }finally{
+    forecastLoading=false;
+  }
+}
+
 async function refreshData(){
   if(loading)return;
   loading=true;
@@ -623,7 +680,10 @@ async function refreshData(){
 
 function scheduleRefresh(){
   clearTimeout(refreshTimer);
-  refreshTimer=setTimeout(refreshData,250);
+  refreshTimer=setTimeout(()=>{
+    if(selectedForecastTime)refreshSelectedForecast();
+    else refreshData();
+  },250);
 }
 
 function moveTo(c,name){
@@ -659,7 +719,7 @@ function endDrag(e){
   drag=null;
   map.classList.remove("dragging");
   if(moved){
-    invalidateForecast();
+    invalidateForecast(true);
     closeForecastPanel();
     $("place").textContent="地図で選択した地点　(青円5km)";
     scheduleRefresh();
@@ -670,24 +730,25 @@ map.addEventListener("pointercancel",endDrag);
 
 $("zoomIn").addEventListener("click",()=>{
   zoom=Math.min(17,zoom+1);
-  invalidateForecast();
+  invalidateForecast(true);
   closeForecastPanel();
   renderMap();
   scheduleRefresh();
 });
 $("zoomOut").addEventListener("click",()=>{
   zoom=Math.max(8,zoom-1);
-  invalidateForecast();
+  invalidateForecast(true);
   closeForecastPanel();
   renderMap();
   scheduleRefresh();
 });
 $("modelSelect").addEventListener("change",()=>{
   activeModel=$("modelSelect").value;
-  invalidateForecast();
+  invalidateForecast(true);
   closeForecastPanel();
   updateModelUI();
-  refreshData();
+  if(selectedForecastTime)refreshSelectedForecast();
+  else refreshData();
 });
 $("compareBtn").addEventListener("click",()=>{
   compareMode=!compareMode;
