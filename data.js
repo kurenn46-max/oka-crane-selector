@@ -439,7 +439,8 @@ const CRANES = [
         "hookWeightT": 0.09
       }
     ],
-    "audit": "official-full-outrigger"
+    "audit": "official-full-outrigger",
+    "auditStatus": "ACTIVE"
   },
   {
     "manufacturer": "KATO",
@@ -921,7 +922,8 @@ const CRANES = [
         "hookWeightT": 0.09
       }
     ],
-    "audit": "official-max-outrigger"
+    "audit": "official-max-outrigger",
+    "auditStatus": "ACTIVE"
   },
   {
     "manufacturer": "TADANO",
@@ -1347,7 +1349,8 @@ const CRANES = [
         "hookWeightT": 0.14
       }
     ],
-    "audit": "official-max-outrigger"
+    "audit": "official-max-outrigger",
+    "auditStatus": "ACTIVE"
   },
   {
     "manufacturer": "KATO",
@@ -1763,7 +1766,8 @@ const CRANES = [
         "hookWeightT": 0.2
       }
     ],
-    "audit": "official-max-outrigger"
+    "audit": "official-max-outrigger",
+    "auditStatus": "ACTIVE"
   },
   {
     "manufacturer": "KATO",
@@ -2133,7 +2137,8 @@ const CRANES = [
         "hookWeightT": 0.22
       }
     ],
-    "audit": "official-full-outrigger"
+    "audit": "official-full-outrigger",
+    "auditStatus": "ACTIVE"
   },
   {
     "manufacturer": "TADANO",
@@ -2729,7 +2734,9 @@ const CRANES = [
         "hookWeightT": 0.3
       }
     ],
-    "audit": "official-7.4m-all-around"
+    "audit": "official-7.4m-all-around",
+    "auditStatus": "HOLD",
+    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。"
   },
   {
     "manufacturer": "TADANO",
@@ -3463,7 +3470,9 @@ const CRANES = [
         "hookWeightT": 0.31
       }
     ],
-    "audit": "official-7.6m-360"
+    "audit": "official-7.6m-360",
+    "auditStatus": "HOLD",
+    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。"
   },
   {
     "manufacturer": "TADANO",
@@ -4103,7 +4112,9 @@ const CRANES = [
         "hookWeightT": 0.34
       }
     ],
-    "audit": "official-7.6m-all-around"
+    "audit": "official-7.6m-all-around",
+    "auditStatus": "HOLD",
+    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。"
   },
   {
     "manufacturer": "TADANO",
@@ -5226,6 +5237,8 @@ const CRANES = [
       }
     ],
     "audit": "official-7.8m-360",
-    "hookNote": "50t hook assumed (430kg); official table also permits 35t hook 300kg depending configuration"
+    "hookNote": "50t hook assumed (430kg); official table also permits 35t hook 300kg depending configuration",
+    "auditStatus": "HOLD",
+    "auditNote": "公式定格総荷重表を全セル再照合中。選定対象外。"
   }
 ];
