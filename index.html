@@ -63,14 +63,14 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">現在の公式確認済み登録：5機種（12 / 13 / 16 / 20 / 25t）</div>
+<div id="summary" class="status">現在の公式確認済み登録：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>登録済み：12 / 13 / 16 / 20 / 25t</b><br>
-次：50 / 60 / 70 / 100t。メーカー公式性能表を確認できた機種から追加します。</div>
+<div class="pending"><b>登録済み：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
+現在は最大アウトリガ・全周を優先登録。50t以上は公式表を安全側に間引いてあります。</div>
 </section>
 
 <section class="card note">
@@ -88,11 +88,12 @@ function ceilPoint(points,r){
   return [...points].sort((a,b)=>a[0]-b[0]).find(p=>p[0]>=r)||null;
 }
 function best(crane,load,rigging,radius){
-  const required=load+rigging+(crane.capacityIncludesHook?crane.hookWeightT:0);
   const hits=[];
   for(const ch of crane.charts){
+    const hookWeight=(ch.hookWeightT ?? crane.hookWeightT ?? 0);
+    const required=load+rigging+(crane.capacityIncludesHook?hookWeight:0);
     const p=ceilPoint(ch.points,radius);
-    if(p && p[1]>=required) hits.push({boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required});
+    if(p && p[1]>=required) hits.push({boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required,hookWeight});
   }
   if(!hits.length) return null;
   hits.sort((a,b)=>a.boomM-b.boomM || a.capacity-b.capacity);
@@ -121,6 +122,7 @@ function select(){
     '<div>性能表半径：<b>'+h.chartRadius.toFixed(1)+'m</b></div>'+
     '<div>定格総荷重：<b>'+h.capacity.toFixed(2)+'t</b></div>'+
     '<div>判定荷重：<b>'+h.required.toFixed(2)+'t</b></div>'+
+    '<div>計上フック：<b>'+h.hookWeight.toFixed(2)+'t</b></div>'+
     '<div>使用率：<b>'+util.toFixed(1)+'%</b></div>'+
     '<div>余裕：<b>'+margin.toFixed(2)+'t</b></div>'+
     '<div>アウトリガー：<b>全張出 '+c.outriggerWidthM+'m</b></div>'+
