@@ -1,7 +1,7 @@
 const CRANES = [
   {
     "manufacturer": "TADANO",
-    "model": "GR-120NL",
+    "model": "GR-120NL-2",
     "classT": 12,
     "hookWeightT": 0.09,
     "capacityIncludesHook": true,
@@ -9,9 +9,9 @@ const CRANES = [
     "direction": "360",
     "outriggerWidthM": 4.7,
     "source": {
-      "title": "TADANO GR-120NL / GR-120N 公式仕様書",
-      "url": "https://www.tadano.co.jp/products/upload/docs/GR-120N-1-00111_00118.pdf",
-      "page": "定格総荷重表 p.2"
+      "title": "TADANO GR-120NL-2 / GR-120N-2 仕様書",
+      "url": "https://scp.global-bim.com/Content/download/rough_terrain/GR-120NL_N-2_02.pdf",
+      "page": "定格総荷重表 p.2（GR-120NL値）"
     },
     "charts": [
       {
@@ -81,11 +81,11 @@ const CRANES = [
           ],
           [
             4.5,
-            5.2
+            5.35
           ],
           [
             5,
-            4.65
+            4.7
           ],
           [
             5.5,
@@ -135,15 +135,15 @@ const CRANES = [
           ],
           [
             4.5,
-            5.1
+            5.3
           ],
           [
             5,
-            4.6
+            4.65
           ],
           [
             5.5,
-            4.1
+            4.15
           ],
           [
             6,
@@ -159,19 +159,19 @@ const CRANES = [
           ],
           [
             9,
-            1.9
+            2.05
           ],
           [
             10,
-            1.55
+            1.7
           ],
           [
             11,
-            1.25
+            1.35
           ],
           [
             11.4,
-            1.2
+            1.25
           ]
         ],
         "hookWeightT": 0.09
@@ -205,109 +205,35 @@ const CRANES = [
           ],
           [
             5,
-            4.5
+            4.6
           ],
           [
             5.5,
-            4
+            4.2
           ],
           [
             6,
-            3.6
-          ],
-          [
-            7,
-            2.9
-          ],
-          [
-            8,
-            2.4
-          ],
-          [
-            9,
-            2.05
-          ],
-          [
-            10,
-            1.7
-          ],
-          [
-            11,
-            1.45
-          ],
-          [
-            12,
-            1.25
-          ],
-          [
-            13,
-            1
-          ],
-          [
-            14,
-            0.85
-          ],
-          [
-            15,
-            0.7
-          ]
-        ],
-        "hookWeightT": 0.09
-      },
-      {
-        "boomM": 20.1,
-        "points": [
-          [
-            2.5,
-            4.5
-          ],
-          [
-            3,
-            4.5
-          ],
-          [
-            3.5,
-            4.5
-          ],
-          [
-            4,
-            4.5
-          ],
-          [
-            4.5,
-            4.1
-          ],
-          [
-            5,
             3.8
           ],
           [
-            5.5,
-            3.5
-          ],
-          [
-            6,
-            3.25
-          ],
-          [
             7,
-            2.75
+            3.2
           ],
           [
             8,
-            2.35
+            2.65
           ],
           [
             9,
-            2.05
+            2.25
           ],
           [
             10,
-            1.75
+            1.9
           ],
           [
             11,
-            1.55
+            1.6
           ],
           [
             12,
@@ -319,27 +245,101 @@ const CRANES = [
           ],
           [
             14,
-            1
+            0.98
           ],
           [
             15,
-            0.85
+            0.83
+          ]
+        ],
+        "hookWeightT": 0.09
+      },
+      {
+        "boomM": 20.1,
+        "points": [
+          [
+            2.5,
+            4.7
+          ],
+          [
+            3,
+            4.7
+          ],
+          [
+            3.5,
+            4.7
+          ],
+          [
+            4,
+            4.7
+          ],
+          [
+            4.5,
+            4.5
+          ],
+          [
+            5,
+            4.05
+          ],
+          [
+            5.5,
+            3.7
+          ],
+          [
+            6,
+            3.4
+          ],
+          [
+            7,
+            2.9
+          ],
+          [
+            8,
+            2.5
+          ],
+          [
+            9,
+            2.2
+          ],
+          [
+            10,
+            1.95
+          ],
+          [
+            11,
+            1.75
+          ],
+          [
+            12,
+            1.45
+          ],
+          [
+            13,
+            1.25
+          ],
+          [
+            14,
+            1.05
+          ],
+          [
+            15,
+            0.92
           ],
           [
             16,
-            0.7
+            0.79
           ],
           [
             17,
-            0.6
+            0.67
           ],
           [
             18,
-            0.5
+            0.58
           ],
           [
             18.7,
-            0.45
+            0.5
           ]
         ],
         "hookWeightT": 0.09
@@ -349,98 +349,101 @@ const CRANES = [
         "points": [
           [
             3.5,
-            3
+            3.2
           ],
           [
             4,
-            3
+            3.2
           ],
           [
             4.5,
-            3
+            3.2
           ],
           [
             5,
-            3
+            3.2
           ],
           [
             5.5,
-            3
+            3.2
           ],
           [
             6,
-            2.8
+            3
           ],
           [
             7,
-            2.4
+            2.6
           ],
           [
             8,
-            2.15
+            2.25
           ],
           [
             9,
-            1.9
+            1.95
           ],
           [
             10,
-            1.65
+            1.75
           ],
           [
             11,
-            1.45
+            1.55
           ],
           [
             12,
-            1.3
+            1.4
           ],
           [
             13,
-            1.15
+            1.25
           ],
           [
             14,
-            1.05
+            1.15
           ],
           [
             15,
-            0.95
+            1
           ],
           [
             16,
-            0.8
+            0.86
           ],
           [
             17,
-            0.7
+            0.75
           ],
           [
             18,
-            0.6
+            0.65
           ],
           [
             19,
-            0.5
+            0.56
           ],
           [
             20,
-            0.45
+            0.48
           ],
           [
             22,
-            0.3
+            0.35
           ],
           [
             22.3,
-            0.27
+            0.32
           ]
         ],
         "hookWeightT": 0.09
       }
     ],
-    "audit": "official-full-outrigger",
-    "auditStatus": "ACTIVE"
+    "audit": "verified-4.7m-all-around-GR120NL2",
+    "auditStatus": "ACTIVE",
+    "auditVerified": "2026-09-26",
+    "configLabel": "GR-120NL-2・最大張出4.7m・全周",
+    "hookNote": "GR-120NLの12t仕様。定格総荷重はフック・つり具質量込み。GR-120N-2（4.9t仕様）とは別機種"
   },
   {
     "manufacturer": "KATO",
@@ -452,9 +455,9 @@ const CRANES = [
     "direction": "360",
     "outriggerWidthM": 4.75,
     "source": {
-      "title": "KATO MR-130 公式性能表",
+      "title": "KATO MR-130 (KRM-13H) 公式性能表",
       "url": "https://www.kato-works.co.jp/products/roughter/pdf/MR/MR-130_spec.pdf",
-      "page": "性能表 p.2"
+      "page": "定格総荷重表 p.2"
     },
     "charts": [
       {
@@ -709,22 +712,6 @@ const CRANES = [
           [
             15,
             0.85
-          ],
-          [
-            16,
-            0.8
-          ],
-          [
-            17,
-            0.7
-          ],
-          [
-            18,
-            0.6
-          ],
-          [
-            18.8,
-            0.5
           ]
         ],
         "hookWeightT": 0.09
@@ -813,7 +800,7 @@ const CRANES = [
             0.6
           ],
           [
-            19,
+            18.8,
             0.5
           ]
         ],
@@ -922,8 +909,11 @@ const CRANES = [
         "hookWeightT": 0.09
       }
     ],
-    "audit": "official-max-outrigger",
-    "auditStatus": "ACTIVE"
+    "audit": "official-KATO-max4.75m-all-around-verified",
+    "auditStatus": "ACTIVE",
+    "auditVerified": "2026-09-26",
+    "configLabel": "最大張出4.75m・全周",
+    "hookNote": "13tフック90kg。定格総荷重はフック・つり具質量込み"
   },
   {
     "manufacturer": "TADANO",
@@ -1349,8 +1339,11 @@ const CRANES = [
         "hookWeightT": 0.14
       }
     ],
-    "audit": "official-max-outrigger",
-    "auditStatus": "ACTIVE"
+    "audit": "official-TADANO-max5.2m-all-around-verified",
+    "auditStatus": "ACTIVE",
+    "auditVerified": "2026-09-26",
+    "configLabel": "最大張出5.2m・全周",
+    "hookNote": "主巻フック140kg。定格総荷重はフック・つり具質量込み"
   },
   {
     "manufacturer": "KATO",
@@ -1766,8 +1759,11 @@ const CRANES = [
         "hookWeightT": 0.2
       }
     ],
-    "audit": "official-max-outrigger",
-    "auditStatus": "ACTIVE"
+    "audit": "official-KATO-max5.4m-all-around-verified",
+    "auditStatus": "ACTIVE",
+    "auditVerified": "2026-09-26",
+    "configLabel": "最大張出5.4m・全周",
+    "hookNote": "20tフック200kg。定格総荷重はフック・つり具質量込み"
   },
   {
     "manufacturer": "KATO",
@@ -2137,8 +2133,11 @@ const CRANES = [
         "hookWeightT": 0.22
       }
     ],
-    "audit": "official-full-outrigger",
-    "auditStatus": "ACTIVE"
+    "audit": "official-KATO-max6.6m-360-verified",
+    "auditStatus": "ACTIVE",
+    "auditVerified": "2026-09-26",
+    "configLabel": "最大張出6.6m・360°",
+    "hookNote": "25tフック220kg。定格総荷重はフック・つり具質量込み"
   },
   {
     "manufacturer": "TADANO",
@@ -4138,9 +4137,9 @@ const CRANES = [
     "direction": "360",
     "outriggerWidthM": 7.8,
     "source": {
-      "title": "TADANO GR-1000N (I) 公式仕様書",
-      "url": "https://www.tadano.co.jp/products/upload/docs/GR-1000N-1_LNG_JA_JPN_BS_2307.pdf",
-      "page": "定格総荷重表 p.2 / 注意事項 p.5"
+      "title": "TADANO GR-1000N-1 公式仕様書",
+      "url": "https://www.tadano.co.jp/products/upload/docs/GR-1000N-1_spec_20190919-2.pdf",
+      "page": "定格総荷重表 p.2（CW4.0t・最大張出7.8m・360°）"
     },
     "charts": [
       {
