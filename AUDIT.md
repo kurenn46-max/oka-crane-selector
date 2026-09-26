@@ -32,6 +32,9 @@
 
 ## 参照資料
 - TADANO GR-160N-3: https://www.tadano.co.jp/products/upload/docs/GR-160N-3-201_202.pdf
+- TADANO GR-500N-1: https://www.tadano.co.jp/products/upload/docs/GR-500N-1-00101_00102.pdf
+- TADANO GR-600N-3: https://www.tadano.co.jp/products/upload/docs/GR-600N-3-00101_20181218.pdf
+- TADANO GR-700N-1: https://www.tadano.co.jp/products/upload/docs/GR-700N-1-00101.pdf
 - KATO MR-130: https://www.kato-works.co.jp/products/roughter/pdf/MR/MR-130_spec.pdf
 - KATO SR-200R: https://www.kato-works.co.jp/products/roughter/pdf/SR/SR200R_spec.pdf
 - KATO SR-250R: https://www.kato-works.co.jp/eng/products/roughter/pdf/C03351_SR-250R.pdf
