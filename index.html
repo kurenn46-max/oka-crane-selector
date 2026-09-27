@@ -63,13 +63,13 @@ button{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 16p
 
 <section class="card">
 <h2>選定結果</h2>
-<div id="summary" class="status">メーカー性能表 精査済み：9機種（12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t）</div>
+<div id="summary" class="status">メーカー性能表 精査済み：10機種（12 / 13 / 16 / 20 / 25 / 35 / 50 / 60 / 70 / 100t）</div>
 <div id="results">条件を入れて「吊れる機種を選定」を押してな。</div>
 </section>
 
 <section class="card">
 <h2>登録状況</h2>
-<div class="pending"><b>性能表精査済み：12 / 13 / 16 / 20 / 25 / 50 / 60 / 70 / 100t</b><br>
+<div class="pending"><b>性能表精査済み：12 / 13 / 16 / 20 / 25 / 35 / 50 / 60 / 70 / 100t</b><br>
 現在は各機種の「最大アウトリガー・全周/360°」を基準に選定。100tはCW4.0t条件です。</div>
 </section>
 
@@ -105,11 +105,11 @@ function best(crane,load,rigging,radius){
     const p=ceilPoint(ch.points,radius);
     if(p && p[1]>=required) hits.push({
       boomM:ch.boomM,chartRadius:p[0],capacity:p[1],required,
-      hookWeight:hook.weight,hookLabel:hook.label
+      hookWeight:hook.weight,hookLabel:hook.label,modeLabel:(ch.modeLabel ?? null)
     });
   }
   if(!hits.length) return null;
-  hits.sort((a,b)=>a.boomM-b.boomM || a.capacity-b.capacity);
+  hits.sort((a,b)=>a.boomM-b.boomM || b.capacity-a.capacity);
   return hits[0];
 }
 function select(){
@@ -134,6 +134,7 @@ function select(){
     '<div class="meta">'+
     '<div>クラス：<b>'+c.classT+'t</b></div>'+
     '<div>ブーム：<b>'+h.boomM.toFixed(2)+'m</b></div>'+
+    (h.modeLabel ? '<div>伸縮モード：<b>'+h.modeLabel+'</b></div>' : '')+
     '<div>性能表半径：<b>'+h.chartRadius.toFixed(1)+'m</b></div>'+
     '<div>定格総荷重（フック・吊具込み）：<b>'+h.capacity.toFixed(2)+'t</b></div>'+
     '<div>判定荷重：<b>'+h.required.toFixed(2)+'t</b></div>'+
