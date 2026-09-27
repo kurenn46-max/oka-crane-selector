@@ -67,7 +67,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <body>
 <header>
 <h1>OKA Wind & Wave 5km</h1>
-<div class="sub">中心から半径5km・9地点だけ取得する軽量版</div>
+<div class="sub">半径5km内をズームに応じ9〜21地点で表示</div>
 </header>
 <section class="search">
 <form id="searchForm" class="row">
@@ -110,7 +110,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <div class="card"><div class="label">最大瞬間</div><div class="value" id="gust">-- m/s</div><div class="label">10m高度</div></div>
 <div class="card"><div class="label">波</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
 </div>
-<div class="note">青矢印＝風が流れていく方向。中心＋周囲8方向の9地点だけ取得。青円は半径5km。</div>
+<div class="note">青矢印＝風が流れていく方向。5km圏内をズームに応じ9〜21地点取得。青円は半径5km。</div>
 </section>
 
 <div id="forecastBackdrop"></div>
@@ -267,10 +267,33 @@ function parseCoord(s){
   return Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null;
 }
 function samplePoints(){
+  const wrap=$("mapWrap");
+  const w=Math.max(320,wrap.clientWidth||320);
+  const h=Math.max(300,wrap.clientHeight||300);
+  const cp=project(center.lat,center.lng,zoom);
   const arr=[{lat:center.lat,lng:center.lng,isCenter:true}];
-  for(let b=0;b<360;b+=45){
-    const p=dest(center.lat,center.lng,4,b);
-    arr.push({lat:p.lat,lng:p.lng});
+
+  // 画面内を5x5で見て、四隅を除いた最大21地点。
+  // 5km圏外は拾わないので、拡大時ほど表示が密になる。
+  const xs=[.08,.29,.50,.71,.92];
+  const ys=[.10,.30,.50,.70,.90];
+  ys.forEach((y,yi)=>xs.forEach((x,xi)=>{
+    if(xi===2&&yi===2)return;
+    if((xi===0||xi===4)&&(yi===0||yi===4))return;
+    const px=cp.x+(x-.5)*w;
+    const py=cp.y+(y-.5)*h;
+    const p=unproject(px,py,zoom);
+    if(hav(center,p)<=5)arr.push({lat:p.lat,lng:p.lng});
+  }));
+
+  // 広域表示でグリッドが5km円から外れる時も、最低9地点は確保。
+  if(arr.length<9){
+    const fallback=[{lat:center.lat,lng:center.lng,isCenter:true}];
+    for(let b=0;b<360;b+=45){
+      const p=dest(center.lat,center.lng,4,b);
+      fallback.push({lat:p.lat,lng:p.lng});
+    }
+    return fallback;
   }
   return arr;
 }
@@ -599,7 +622,7 @@ async function refreshSelectedForecast(){
   loading=true;
   clearError();
   $("compareSummary").textContent="";
-  setStatus("固定時刻の9地点予報を取得中…");
+  setStatus("固定時刻の5km予報を取得中…");
   $("place").textContent=placeName+"　(青円5km)";
   try{
     const ps=samplePoints();
@@ -689,7 +712,7 @@ async function refreshData(){
       $("wave").textContent="取得不可";
       $("period").textContent="周期 -- s";
     }
-    setStatus(compareMode?("✅ "+modelInfo().label+"表示＋3モデル差分"):("✅ "+modelInfo().label+"：半径5km・9地点の風を表示"));
+    setStatus(compareMode?("✅ "+modelInfo().label+"表示＋3モデル差分"):("✅ "+modelInfo().label+"：半径5km・"+ps.length+"地点の風を表示"));
   }catch(e){
     showError("データ取得で停止："+(e.message||e));
     setStatus("⚠️ データ取得失敗");
