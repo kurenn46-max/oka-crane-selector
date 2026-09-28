@@ -16,7 +16,7 @@ input,button{font:inherit;border-radius:11px;border:1px solid #345064}
 input{min-width:0;background:#102a3b;color:#fff;padding:11px;font-size:16px}
 button{background:#17374a;color:#fff;padding:10px 12px;font-weight:800;touch-action:manipulation}
 button.primary{background:#58bcff;color:#00131f;border:0}
-.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}.actions button{font-size:12px;padding:8px 3px}
+.actions{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:7px}.actions button{font-size:11px;padding:8px 2px}
 #status{padding:7px 10px;background:#101d26;color:#d5e4ee;font-size:12px;border-bottom:1px solid #28404f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .modelRow{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-top:7px}
 .modelRow label{font-size:11px;color:#a9bdca;font-weight:800}
@@ -61,6 +61,22 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .hourMeta{font-size:9px;color:#a9bdca;margin-top:3px;line-height:1.35}
 .forecastFoot{display:flex;gap:6px;margin-top:5px}
 .forecastFoot button{flex:1}
+#tideBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50}
+#tidePanel{display:none;position:fixed;left:0;right:0;bottom:0;z-index:51;background:#0b1d2b;border-top:1px solid #436071;border-radius:18px 18px 0 0;max-height:72%;overflow-y:auto;padding:10px;box-shadow:0 -6px 20px rgba(0,0,0,.35)}
+#tidePanel.open,#tideBackdrop.open{display:block}
+.tideHero{display:grid;grid-template-columns:1fr 1.35fr;gap:8px;margin-top:9px}
+.tideCard{background:#102a3b;border:1px solid #304b5c;border-radius:12px;padding:10px;min-height:92px}
+.moonRow{display:flex;align-items:center;gap:8px}.moonIcon{font-size:34px;line-height:1}.moonName{font-size:13px;font-weight:900}
+.moonMeta{font-size:10px;color:#a9bdca;margin-top:4px}
+.tideState{font-size:22px;font-weight:900;margin-top:3px}.tideSub{font-size:10px;color:#a9bdca;margin-top:4px}
+.tideProgress{height:7px;background:#0a1822;border-radius:999px;overflow:hidden;margin-top:8px}.tideProgress>div{height:100%;background:#58bcff;width:0%}
+#tideChartWrap{margin-top:9px;background:#102a3b;border:1px solid #304b5c;border-radius:12px;padding:8px}
+#tideChart{display:block;width:100%;height:170px}
+.tideEvents{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:8px}
+.tideEvent{background:#102a3b;border:1px solid #304b5c;border-radius:10px;padding:8px}
+.tideEvent .kind{font-size:10px;color:#9eb5c3}.tideEvent .time{font-size:17px;font-weight:900;margin-top:2px}.tideEvent .height{font-size:10px;color:#a9bdca;margin-top:2px}
+.tideNote{font-size:9px;color:#8fa8b7;line-height:1.45;margin-top:8px}
+.tideLoading{padding:22px 8px;text-align:center;color:#a9bdca}
 .dragging .hint{display:none}
 </style>
 </head>
@@ -79,6 +95,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <button type="button" id="forecastBtn">🕒予報</button>
 <button type="button" id="refreshBtn">↻更新</button>
 <button type="button" id="kyotoBtn">京都</button>
+<button type="button" id="tideBtn">🌙潮・月</button>
 </div>
 <div class="modelRow">
 <label for="modelSelect">風モデル</label>
@@ -133,6 +150,47 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   </div>
 </section>
 
+<div id="tideBackdrop"></div>
+<section id="tidePanel" aria-label="潮と月">
+  <div class="forecastTop">
+    <div>
+      <div class="forecastTitle">🌙 潮・月</div>
+      <div class="label" id="tidePlace">地図中心地点</div>
+    </div>
+    <button type="button" id="tideClose">閉じる</button>
+  </div>
+
+  <div class="tideHero">
+    <div class="tideCard">
+      <div class="moonRow">
+        <div id="moonIcon" class="moonIcon">🌙</div>
+        <div>
+          <div id="moonName" class="moonName">--</div>
+          <div id="moonAge" class="moonMeta">月齢 --</div>
+        </div>
+      </div>
+      <div id="moonHint" class="moonMeta">潮差の目安 --</div>
+    </div>
+    <div class="tideCard">
+      <div class="label">基準時刻の潮</div>
+      <div id="tideState" class="tideState">--</div>
+      <div id="tideStateSub" class="tideSub">潮データ取得前</div>
+      <div class="tideProgress"><div id="tideProgressBar"></div></div>
+    </div>
+  </div>
+
+  <div id="tideChartWrap">
+    <div class="label" id="tideChartTitle">24時間の潮位カーブ</div>
+    <div id="tideLoading" class="tideLoading">潮データを取得します</div>
+    <svg id="tideChart" viewBox="0 0 720 180" preserveAspectRatio="none" style="display:none"></svg>
+  </div>
+  <div id="tideEvents" class="tideEvents"></div>
+  <div class="tideNote">
+    潮位はOpen-Meteo海洋モデルの推定値。沿岸では誤差があるため、釣行判断の目安として表示。
+    風予報で未来時刻を選んでいる時は、その時刻に連動します。
+  </div>
+</section>
+
 <script>
 (function(){
 "use strict";
@@ -145,6 +203,8 @@ let windSamples=[];
 let drag=null, loading=false, refreshTimer=null;
 let forecastRows=[], forecastWave=null, forecastRange=24, forecastIndex=null, forecastLoading=false;
 let selectedForecastTime=null;
+let tideLoading=false;
+let tideCache=new Map();
 const MODEL_INFO={
   best_match:{label:"Best Match（自動）",param:"best_match",maxHours:168,gust:true,note:"Open-Meteoが地点ごとに最適モデルを自動選択"},
   jma_msm:{label:"JMA MSM",param:"jma_msm",maxHours:96,gust:false,note:"気象庁 MSM・約5km・約4日先まで"},
@@ -156,6 +216,183 @@ let compareMode=false;
 function setStatus(s){$("status").textContent=s}
 function showError(s){$("error").textContent=s;$("error").style.display="block"}
 function clearError(){$("error").style.display="none"}
+function openTidePanel(){
+  $("tideBackdrop").classList.add("open");
+  $("tidePanel").classList.add("open");
+}
+function closeTidePanel(){
+  $("tideBackdrop").classList.remove("open");
+  $("tidePanel").classList.remove("open");
+}
+function focusDate(){
+  return selectedForecastTime?new Date(selectedForecastTime):new Date();
+}
+function moonInfo(date){
+  const syn=29.530588853;
+  const ref=Date.UTC(2000,0,6,18,14,0);
+  let age=((date.getTime()-ref)/86400000)%syn;
+  if(age<0)age+=syn;
+  const illumination=(1-Math.cos(2*Math.PI*age/syn))/2*100;
+  let icon="🌑",name="新月";
+  if(age<1.85||age>=27.68){icon="🌑";name="新月";}
+  else if(age<5.54){icon="🌒";name="三日月";}
+  else if(age<9.23){icon="🌓";name="上弦";}
+  else if(age<12.92){icon="🌔";name="満月前";}
+  else if(age<16.61){icon="🌕";name="満月";}
+  else if(age<20.30){icon="🌖";name="満月後";}
+  else if(age<23.99){icon="🌗";name="下弦";}
+  else{icon="🌘";name="新月前";}
+  const dNew=Math.min(age,syn-age);
+  const dFull=Math.abs(age-syn/2);
+  const dQuarter=Math.min(Math.abs(age-syn/4),Math.abs(age-3*syn/4));
+  let hint="潮差：中くらい";
+  if(Math.min(dNew,dFull)<2.3)hint="潮差：大きくなりやすい";
+  else if(dQuarter<2.3)hint="潮差：小さくなりやすい";
+  return{age,illumination,icon,name,hint};
+}
+function fmtHM(date){
+  return String(date.getHours()).padStart(2,"0")+":"+String(date.getMinutes()).padStart(2,"0");
+}
+function fmtMDHM(date){
+  return (date.getMonth()+1)+"/"+date.getDate()+" "+fmtHM(date);
+}
+function nearestIndex(times,target){
+  let best=0,bestDiff=Infinity;
+  for(let i=0;i<times.length;i++){
+    const d=Math.abs(new Date(times[i]).getTime()-target.getTime());
+    if(d<bestDiff){best=i;bestDiff=d;}
+  }
+  return best;
+}
+function tideExtrema(times,vals){
+  const out=[];
+  for(let i=1;i<vals.length-1;i++){
+    const a=vals[i-1],b=vals[i],c=vals[i+1];
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c))continue;
+    if(b>=a&&b>c)out.push({i,type:"high",time:new Date(times[i]),value:b});
+    else if(b<=a&&b<c)out.push({i,type:"low",time:new Date(times[i]),value:b});
+  }
+  return out;
+}
+async function fetchTide(){
+  const key=center.lat.toFixed(2)+","+center.lng.toFixed(2);
+  const cached=tideCache.get(key);
+  if(cached&&Date.now()-cached.ts<10*60*1000)return cached.data;
+
+  const u=new URL("https://marine-api.open-meteo.com/v1/marine");
+  u.searchParams.set("latitude",center.lat.toFixed(5));
+  u.searchParams.set("longitude",center.lng.toFixed(5));
+  u.searchParams.set("hourly","sea_level_height_msl");
+  u.searchParams.set("past_hours","24");
+  u.searchParams.set("forecast_hours","168");
+  u.searchParams.set("cell_selection","sea");
+  u.searchParams.set("timezone","auto");
+  const r=await fetch(u);
+  if(!r.ok)throw new Error("潮API "+r.status);
+  const data=await r.json();
+  tideCache.set(key,{ts:Date.now(),data});
+  return data;
+}
+function renderTideChart(times,vals,focus,extrema){
+  const svg=$("tideChart");
+  const from=focus.getTime()-6*3600000;
+  const to=focus.getTime()+24*3600000;
+  const pts=[];
+  for(let i=0;i<times.length;i++){
+    const ms=new Date(times[i]).getTime();
+    if(ms>=from&&ms<=to&&Number.isFinite(vals[i]))pts.push({i,ms,v:vals[i]});
+  }
+  if(pts.length<2){svg.innerHTML="";return;}
+  const W=720,H=180,L=34,R=10,T=16,B=27;
+  const min=Math.min(...pts.map(p=>p.v)),max=Math.max(...pts.map(p=>p.v));
+  const span=Math.max(.01,max-min);
+  const x=ms=>L+(ms-from)/(to-from)*(W-L-R);
+  const y=v=>T+(max-v)/span*(H-T-B);
+  const path=pts.map((p,i)=>(i?"L":"M")+x(p.ms).toFixed(1)+","+y(p.v).toFixed(1)).join(" ");
+  let html='<line x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'" stroke="rgba(255,255,255,.18)" />'+
+    '<path d="'+path+'" fill="none" stroke="#58bcff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />';
+  const fx=x(focus.getTime());
+  html+='<line x1="'+fx+'" y1="'+T+'" x2="'+fx+'" y2="'+(H-B)+'" stroke="#ffcc66" stroke-width="2" stroke-dasharray="5 5" />'+
+    '<text x="'+Math.min(W-72,fx+5)+'" y="13" fill="#ffda88" font-size="12">基準</text>';
+  extrema.forEach(e=>{
+    const ms=e.time.getTime();
+    if(ms<from||ms>to)return;
+    const cx=x(ms),cy=y(e.value);
+    html+='<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="'+(e.type==="high"?"#ff9d66":"#7dd8ff")+'" />'+
+      '<text x="'+Math.max(4,cx-22)+'" y="'+(e.type==="high"?Math.max(12,cy-9):Math.min(H-B-3,cy+17))+'" fill="#dfeef7" font-size="11">'+fmtHM(e.time)+'</text>';
+  });
+  for(let h=0;h<=24;h+=6){
+    const ms=focus.getTime()+h*3600000;
+    html+='<text x="'+(x(ms)-15)+'" y="'+(H-7)+'" fill="#91a9b8" font-size="10">'+(h===0?"基準":"+"+h+"h")+'</text>';
+  }
+  svg.innerHTML=html;
+}
+function renderMoon(focus){
+  const m=moonInfo(focus);
+  $("moonIcon").textContent=m.icon;
+  $("moonName").textContent=m.name+"　"+Math.round(m.illumination)+"%";
+  $("moonAge").textContent="月齢 "+m.age.toFixed(1);
+  $("moonHint").textContent=m.hint+"（月齢からの目安）";
+}
+async function loadTidePanel(){
+  if(tideLoading)return;
+  tideLoading=true;
+  closeForecastPanel();
+  const focus=focusDate();
+  renderMoon(focus);
+  $("tidePlace").textContent=placeName+"　基準 "+fmtMDHM(focus);
+  $("tideLoading").style.display="block";
+  $("tideLoading").textContent="潮データ取得中…";
+  $("tideChart").style.display="none";
+  $("tideEvents").replaceChildren();
+  openTidePanel();
+  try{
+    const d=await fetchTide();
+    const h=d.hourly||{};
+    const times=h.time||[],vals=h.sea_level_height_msl||[];
+    if(!times.length||!vals.length)throw new Error("潮位データなし");
+    const idx=nearestIndex(times,focus);
+    const ext=tideExtrema(times,vals);
+    const prev=[...ext].reverse().find(e=>e.i<=idx);
+    const next=ext.find(e=>e.i>idx);
+    const slope=(vals[Math.min(vals.length-1,idx+1)]??vals[idx])-(vals[Math.max(0,idx-1)]??vals[idx]);
+    const rising=slope>=0;
+    let pct=50;
+    if(prev&&next&&next.time.getTime()>prev.time.getTime()){
+      pct=clamp((focus.getTime()-prev.time.getTime())/(next.time.getTime()-prev.time.getTime())*100,0,100);
+    }
+    $("tideState").textContent=(rising?"↗ 上げ潮":"↘ 下げ潮")+" "+Math.round(pct)+"%";
+    const model={lat:Number(d.latitude),lng:Number(d.longitude)};
+    const dist=Number.isFinite(model.lat)?hav(center,model):NaN;
+    $("tideStateSub").textContent="推定潮位 "+(Number.isFinite(vals[idx])?vals[idx].toFixed(2)+"m":"--")+(Number.isFinite(dist)?" / 最寄海域 "+dist.toFixed(0)+"km":"");
+    $("tideProgressBar").style.width=Math.round(pct)+"%";
+
+    renderTideChart(times,vals,focus,ext);
+    $("tideLoading").style.display="none";
+    $("tideChart").style.display="block";
+    $("tideChartTitle").textContent="基準の6時間前〜24時間後";
+
+    const upcoming=ext.filter(e=>e.time.getTime()>focus.getTime()).slice(0,4);
+    const frag=document.createDocumentFragment();
+    upcoming.forEach(e=>{
+      const el=document.createElement("div");
+      el.className="tideEvent";
+      el.innerHTML='<div class="kind">'+(e.type==="high"?"🔺 満潮":"🔻 干潮")+'</div>'+
+        '<div class="time">'+fmtMDHM(e.time)+'</div>'+
+        '<div class="height">推定 '+e.value.toFixed(2)+' m</div>';
+      frag.appendChild(el);
+    });
+    $("tideEvents").replaceChildren(frag);
+  }catch(e){
+    $("tideLoading").style.display="block";
+    $("tideLoading").textContent="潮データを取得できません："+(e.message||e);
+    $("tideChart").style.display="none";
+    $("tideState").textContent="取得不可";
+    $("tideStateSub").textContent="少し時間を空けて再度開いてください";
+  }finally{
+    tideLoading=false;
+  }
+}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function compass(d){
   if(!Number.isFinite(d))return"--";
@@ -732,6 +969,7 @@ function scheduleRefresh(){
 function moveTo(c,name){
   invalidateForecast(!!selectedForecastTime);
   closeForecastPanel();
+  closeTidePanel();
   center={lat:Number(c.lat),lng:Number(c.lng)};
   placeName=name||("地図中心 "+center.lat.toFixed(5)+","+center.lng.toFixed(5));
   renderMap();
@@ -764,6 +1002,7 @@ function endDrag(e){
   if(moved){
     invalidateForecast(!!selectedForecastTime);
     closeForecastPanel();
+    closeTidePanel();
     $("place").textContent="地図で選択した地点　(青円5km)";
     scheduleRefresh();
   }
@@ -800,7 +1039,11 @@ $("compareBtn").addEventListener("click",()=>{
   closeForecastPanel();
   refreshData();
 });
+$("tideBtn").addEventListener("click",loadTidePanel);
+$("tideClose").addEventListener("click",closeTidePanel);
+$("tideBackdrop").addEventListener("click",closeTidePanel);
 $("forecastBtn").addEventListener("click",()=>{
+  closeTidePanel();
   if(forecastRows.length){$("forecastPlace").textContent=placeName;openForecastPanel();renderForecastList()}
   else loadForecast();
 });
