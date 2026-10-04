@@ -36,8 +36,31 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .marker{position:absolute;transform:translate(-50%,-50%);text-align:center;filter:drop-shadow(0 1px 2px #000);z-index:7}
 .arrow{font-size:25px;line-height:21px;font-weight:900;color:#56c0ff;transform-origin:50% 50%}
 .tag{display:inline-block;margin-top:2px;padding:2px 5px;border-radius:7px;background:rgba(0,15,24,.9);border:1px solid rgba(255,255,255,.24);font-size:10px;font-weight:900;white-space:nowrap}
-.zoom{position:absolute;right:10px;top:10px;z-index:12;display:grid;gap:5px}
-.zoom button{width:46px;height:46px;padding:0;font-size:26px;background:rgba(9,27,39,.94)}
+.zoom{
+  position:absolute;
+  right:max(14px,env(safe-area-inset-right));
+  top:10px;
+  z-index:12;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  max-height:calc(100% - 20px);
+}
+.zoom button{
+  width:44px;
+  height:44px;
+  min-height:38px;
+  padding:0;
+  flex:0 1 44px;
+  line-height:1;
+  font-size:25px;
+  background:rgba(9,27,39,.94);
+  box-sizing:border-box;
+}
+@media (max-height:620px){
+  .zoom{top:7px;gap:4px;max-height:calc(100% - 14px)}
+  .zoom button{width:40px;height:40px;min-height:34px;flex-basis:40px;font-size:23px}
+}
 .hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:11;background:rgba(4,18,27,.9);border:1px solid #365061;border-radius:999px;padding:6px 10px;font-size:11px;white-space:nowrap;pointer-events:none}
 .attrib{position:absolute;right:4px;bottom:3px;z-index:10;background:rgba(255,255,255,.8);color:#222;font-size:8px;padding:1px 3px}
 .bottom{background:#0b1d2b;border-top:1px solid #294354;padding:9px}
