@@ -124,7 +124,8 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .tideScoreNote{font-size:8px;color:#8fa8b7;margin-top:4px}
 .tideChance{margin-top:8px;background:#102a3b;border:1px solid #6e6636;border-radius:12px;padding:9px 10px;box-shadow:inset 0 0 0 1px rgba(255,213,74,.07)}
 .tideChanceHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#d7e8f2;font-weight:900}
-.tideChanceBadge{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:3px 8px;border-radius:999px;background:#ffd54a;color:#06131c;font-size:10px;font-weight:900}
+.tideChanceBadge{display:inline-flex;align-items:center;justify-content:center;min-width:72px;padding:7px 12px;border-radius:999px;background:#ffd54a;color:#06131c;border:0;font-size:11px;font-weight:900;touch-action:manipulation}
+.tideChanceBadge:disabled{opacity:.55;cursor:default}
 .tideChanceMain{font-size:18px;font-weight:950;line-height:1.35;margin-top:5px;color:#fff;white-space:pre-line}
 .tideChanceSub{font-size:10px;color:#b9cbd6;line-height:1.45;margin-top:4px}
 #tideChartWrap{margin-top:8px;background:#102a3b;border:1px solid #304b5c;border-radius:12px;padding:7px}
@@ -272,7 +273,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div id="tideChance" class="tideChance tideSwipeZone">
     <div class="tideChanceHead">
       <span id="tideChanceTitle">🎯 今からの狙い目</span>
-      <span id="tideChanceBadge" class="tideChanceBadge">計算中</span>
+      <button type="button" id="tideChanceBadge" class="tideChanceBadge">計算中</button>
     </div>
     <div id="tideChanceMain" class="tideChanceMain">潮の動きから計算中…</div>
     <div id="tideChanceSub" class="tideChanceSub">上げ3分・下げ7分を基準にした潮回りの目安</div>
@@ -310,6 +311,8 @@ let tideCache=new Map();
 let jmaTideCache=new Map();
 let tideSelectedDateKey=null;
 let tideData=null;
+let tideChanceViewIndex=0;
+let tideChanceViewDay=null;
 const JMA_TIDE_STATIONS=[
   {code:"MZ",name:"舞鶴",lat:35+29/60,lng:135+23/60},
   {code:"XM",name:"敦賀",lat:35+40/60,lng:136+4/60}
@@ -656,44 +659,65 @@ function renderTideChance(day,allExt,times,vals){
   const windows=tideChanceWindows(allExt,times,vals);
   const now=new Date();
   const today=sameDay(day,now);
+  const key=dayKey(day);
+  const from=dayStart(day),to=new Date(from);to.setDate(to.getDate()+1);
+
+  if(tideChanceViewDay!==key){
+    tideChanceViewDay=key;
+    tideChanceViewIndex=0;
+  }
 
   title.textContent=today
     ?"🎯 今からの狙い目"
     :"🎯 "+(day.getMonth()+1)+"/"+day.getDate()+" の狙い目";
 
-  if(today){
-    const current=windows.find(w=>now>=w.start&&now<=w.end);
-    if(current){
-      badge.textContent="◎ 今";
-      main.textContent=current.label+"　"+fmtHM10(current.start)+"〜"+fmtHM10(current.end);
-      sub.textContent="いま狙い目の時間帯・残り約"+Math.max(1,Math.round((current.end-now)/60000))+"分　｜　干潮0・満潮10の潮位基準";
-      return;
-    }
-    const next=windows.find(w=>w.start>now);
-    if(next){
-      badge.textContent="次";
-      main.textContent=fmtHM10(next.start)+"〜"+fmtHM10(next.end)+"　"+next.label;
-      sub.textContent=countdownText(next.start-now)+"で狙い目入り　｜　経験則の目安";
-      return;
-    }
-    badge.textContent="--";
-    main.textContent="次の狙い目を計算できません";
-    sub.textContent="潮位データの範囲外です";
+  let dayWindows=windows.filter(w=>w.end>=from&&w.start<to);
+  if(today)dayWindows=dayWindows.filter(w=>w.end>=now);
+
+  if(!dayWindows.length){
+    badge.textContent="翌日";
+    badge.disabled=false;
+    badge.dataset.action="nextday";
+    main.textContent=today?"今日の狙い目は終了":"狙い目を計算できません";
+    sub.textContent=today?"次の日の狙い目を確認できます":"この日の潮位極値データが不足しています";
     return;
   }
 
-  const from=dayStart(day),to=new Date(from);to.setDate(to.getDate()+1);
-  const dayWindows=windows.filter(w=>w.end>=from&&w.start<to);
-  if(dayWindows.length){
-    badge.textContent="この日";
-    main.textContent=dayWindows.slice(0,4)
-      .map(w=>fmtHM10(w.start)+"〜"+fmtHM10(w.end)+"　"+w.label)
-      .join("\n");
-    sub.textContent="その日の候補を時刻順に表示　｜　干潮0・満潮10の潮位基準／経験則の目安";
+  tideChanceViewIndex=clamp(tideChanceViewIndex,0,dayWindows.length-1);
+  const w=dayWindows[tideChanceViewIndex];
+  const current=today&&now>=w.start&&now<=w.end;
+  const position=(tideChanceViewIndex+1)+"/"+dayWindows.length;
+
+  main.textContent=(current?"◎ 今　":"")+fmtHM10(w.start)+"〜"+fmtHM10(w.end)+"　"+w.label;
+
+  if(current){
+    sub.textContent="残り約"+Math.max(1,Math.round((w.end-now)/60000))+"分　｜　"+position+"　｜　干潮0・満潮10の潮位基準";
+  }else if(today&&w.start>now){
+    sub.textContent=countdownText(w.start-now)+"で狙い目入り　｜　"+position+"　｜　経験則の目安";
   }else{
-    badge.textContent="--";
-    main.textContent="狙い目を計算できません";
-    sub.textContent="この日の潮位極値データが不足しています";
+    sub.textContent=position+"　｜　干潮0・満潮10の潮位基準／経験則の目安";
+  }
+
+  if(tideChanceViewIndex<dayWindows.length-1){
+    badge.textContent="次 ›";
+    badge.disabled=false;
+    badge.dataset.action="nextchance";
+  }else{
+    badge.textContent="翌日 ›";
+    badge.disabled=false;
+    badge.dataset.action="nextday";
+  }
+}
+function advanceTideChance(){
+  const badge=$("tideChanceBadge");
+  const action=badge.dataset.action||"";
+  if(action==="nextchance"){
+    tideChanceViewIndex++;
+    if(tideData)renderSelectedTideDay(tideData);
+    return;
+  }
+  if(action==="nextday"){
+    shiftTideDay(1);
   }
 }
 async function fetchTide(){
@@ -851,6 +875,8 @@ function selectDefaultTideDay(){
 }
 function setTideSelectedDay(key){
   tideSelectedDateKey=key;
+  tideChanceViewIndex=0;
+  tideChanceViewDay=key;
   renderTideWeek();
   if(tideData)renderSelectedTideDay(tideData);
 }
@@ -1812,6 +1838,7 @@ $("compareBtn").addEventListener("click",()=>{
 $("tideBtn").addEventListener("click",loadTidePanel);
 $("tideClose").addEventListener("click",closeTidePanel);
 $("tideBackdrop").addEventListener("click",closeTidePanel);
+$("tideChanceBadge").addEventListener("click",advanceTideChance);
 
 // 潮見表の主要エリアを左右にスワイプ → 前日 / 翌日
 // 縦方向はブラウザの通常スクロールに任せる。
@@ -1820,6 +1847,7 @@ $("tideBackdrop").addEventListener("click",closeTidePanel);
   const targets=[...document.querySelectorAll(".tideSwipeZone")];
   targets.forEach(el=>{
     el.addEventListener("touchstart",e=>{
+      if(e.target.closest("button")){active=false;return;}
       const t=e.touches&&e.touches[0];
       if(!t)return;
       sx=t.clientX; sy=t.clientY; active=true;
