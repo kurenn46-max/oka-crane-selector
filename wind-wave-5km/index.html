@@ -286,7 +286,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div class="tideNote">
     日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
     上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
-    海水温は約8km格子の広域推定、潮位も約8km格子の海洋モデルです。湾奥・港内・防波堤周辺では実測と差が出やすいため、釣り判断の参考値として使ってください。
+    海水温は約8km格子の広域推定、海面高も約8km格子の海洋モデルです。海面高は潮汐を含みますが全球平均海面基準で、JMA潮位表の基準面とは直接比較できません。湾奥・港内・防波堤周辺では実測との差に注意。
   </div>
 </section>
 
@@ -935,14 +935,14 @@ function renderSelectedTideDay(data){
   const nextBits=[];
   if(nextHigh)nextBits.push("満潮 "+(nextHigh.time.getMonth()+1)+"/"+nextHigh.time.getDate()+" "+fmtHM10(nextHigh.time));
   if(nextLow)nextBits.push("干潮 "+(nextLow.time.getMonth()+1)+"/"+nextLow.time.getDate()+" "+fmtHM10(nextLow.time));
-  $("tideStateSub").textContent="推定潮位 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
+  $("tideStateSub").textContent="モデル海面高 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
   $("tideProgressBar").style.width=Math.round(pct)+"%";
 
   const ok=renderTideChartForDay(times,vals,day,dayEvents);
   $("tideLoading").style.display=ok?"none":"block";
   $("tideLoading").textContent=ok?"":"この日の潮位データがありません";
   $("tideChart").style.display=ok?"block":"none";
-  $("tideChartTitle").textContent=(day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定潮位　｜　黄色帯＝狙い目";
+  $("tideChartTitle").textContent=(day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定海面高（潮汐含む）｜ 黄色帯＝狙い目";
 
   const frag=document.createDocumentFragment();
   const eventsToShow=dayEvents.slice(0,4);
@@ -951,7 +951,7 @@ function renderSelectedTideDay(data){
     el.className="tideEvent";
     el.innerHTML='<div class="kind">'+(e.type==="high"?"🔴 満潮":"🔵 干潮")+'</div>'+
       '<div class="time">'+fmtHM10(e.time)+'</div>'+
-      '<div class="height">推定 '+e.value.toFixed(2)+' m</div>';
+      '<div class="height">モデル海面高 '+e.value.toFixed(2)+' m</div>';
     frag.appendChild(el);
   });
   if(!eventsToShow.length){
