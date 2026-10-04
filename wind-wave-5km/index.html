@@ -356,14 +356,38 @@ function nearestIndex(times,target){
   return best;
 }
 function tideExtrema(times,vals){
-  const out=[];
+  const raw=[];
   for(let i=1;i<vals.length-1;i++){
     const a=vals[i-1],b=vals[i],c=vals[i+1];
     if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c))continue;
-    if(b>=a&&b>c)out.push({i,type:"high",time:new Date(times[i]),value:b});
-    else if(b<=a&&b<c)out.push({i,type:"low",time:new Date(times[i]),value:b});
+    if(b>=a&&b>c)raw.push({i,type:"high",time:new Date(times[i]),value:b});
+    else if(b<=a&&b<c)raw.push({i,type:"low",time:new Date(times[i]),value:b});
   }
+
+  // 海洋モデルの小さな揺れや平坦部で同じ種類の極値が連続すると、
+  // 「現在の潮区間」を判定できなくなる。連続したhigh/lowは、
+  // より極端な方だけ残して high→low→high… に正規化する。
+  const out=[];
+  raw.forEach(e=>{
+    const last=out[out.length-1];
+    if(!last||last.type!==e.type){
+      out.push(e);
+      return;
+    }
+    const stronger=e.type==="high"?e.value>=last.value:e.value<=last.value;
+    if(stronger)out[out.length-1]=e;
+  });
   return out;
+}
+function tideSegmentAt(allExt,at){
+  const prev=[...allExt].reverse().find(e=>e.time<=at);
+  if(!prev)return null;
+  // 念のため同種の極値が残っていても、次の反対側の極値まで探す。
+  const next=allExt.find(e=>e.time>at&&e.type!==prev.type);
+  if(!next||next.time<=prev.time)return null;
+  const rising=prev.type==="low"&&next.type==="high";
+  const falling=prev.type==="high"&&next.type==="low";
+  return rising||falling?{prev,next,rising,falling}:null;
 }
 function tideChanceWindows(allExt){
   const out=[];
@@ -404,17 +428,11 @@ function expectationGrade(score){
   return"× 厳しめ";
 }
 function currentTideScore(allExt,now){
-  const prev=[...allExt].reverse().find(e=>e.time<=now);
-  const next=allExt.find(e=>e.time>now);
-  if(!prev||!next||next.time<=prev.time)return{
+  const seg=tideSegmentAt(allExt,now);
+  if(!seg)return{
     total:null,timingScore:null,rangeScore:null,label:"潮データ不足",range:null,bun:null,phase:"--"
   };
-
-  const rising=prev.type==="low"&&next.type==="high";
-  const falling=prev.type==="high"&&next.type==="low";
-  if(!rising&&!falling)return{
-    total:null,timingScore:null,rangeScore:null,label:"潮判定中",range:null,bun:null,phase:"--"
-  };
+  const {prev,next,rising}=seg;
 
   const p=clamp((now-prev.time)/(next.time-prev.time),0,1);
   const target=rising?.30:.70;
@@ -692,13 +710,12 @@ function renderSelectedTideDay(data){
   renderTideChance(day,allExt);
   const ref=selectedReferenceTime(day);
   const idx=nearestIndex(times,ref);
-  const prev=[...allExt].reverse().find(e=>e.i<=idx);
-  const next=allExt.find(e=>e.i>idx);
+  const seg=tideSegmentAt(allExt,ref);
   const slope=(vals[Math.min(vals.length-1,idx+1)]??vals[idx])-(vals[Math.max(0,idx-1)]??vals[idx]);
-  const rising=slope>=0;
+  const rising=seg?seg.rising:slope>=0;
   let pct=50;
-  if(prev&&next&&next.time.getTime()>prev.time.getTime()){
-    pct=clamp((ref.getTime()-prev.time.getTime())/(next.time.getTime()-prev.time.getTime())*100,0,100);
+  if(seg){
+    pct=clamp((ref.getTime()-seg.prev.time.getTime())/(seg.next.time.getTime()-seg.prev.time.getTime())*100,0,100);
   }
   $("tideStateLabel").textContent=sameDay(day,new Date())?"現在の潮 "+fmtHM(new Date()):"選択日の12時付近";
   $("tideState").textContent=rising?"↗ 上げ潮":"↘ 下げ潮";
