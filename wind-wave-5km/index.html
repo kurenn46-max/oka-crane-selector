@@ -83,6 +83,11 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .moonMeta{font-size:9px;color:#a9bdca;margin-top:4px}
 .tideState{font-size:20px;font-weight:900;margin-top:2px}.tideSub{font-size:9px;color:#a9bdca;margin-top:4px;line-height:1.35}
 .tideProgress{height:6px;background:#091a25;border-radius:999px;overflow:hidden;margin-top:7px}.tideProgress>div{height:100%;background:#58bcff;width:0%}
+.tideChance{margin-top:8px;background:#102a3b;border:1px solid #6e6636;border-radius:12px;padding:9px 10px;box-shadow:inset 0 0 0 1px rgba(255,213,74,.07)}
+.tideChanceHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#d7e8f2;font-weight:900}
+.tideChanceBadge{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:3px 8px;border-radius:999px;background:#ffd54a;color:#06131c;font-size:10px;font-weight:900}
+.tideChanceMain{font-size:20px;font-weight:950;line-height:1.2;margin-top:5px;color:#fff}
+.tideChanceSub{font-size:10px;color:#b9cbd6;line-height:1.45;margin-top:4px}
 #tideChartWrap{margin-top:8px;background:#102a3b;border:1px solid #304b5c;border-radius:12px;padding:7px}
 #tideChartTitle{font-size:11px;color:#d7e8f2;font-weight:800;margin:1px 2px 4px}
 #tideChart{display:block;width:100%;height:205px}
@@ -198,6 +203,15 @@ button.primary{background:#58bcff;color:#00131f;border:0}
       <div id="tideStateSub" class="tideSub">潮データ取得前</div>
       <div class="tideProgress"><div id="tideProgressBar"></div></div>
     </div>
+  </div>
+
+  <div id="tideChance" class="tideChance">
+    <div class="tideChanceHead">
+      <span>🎯 今からの狙い目</span>
+      <span id="tideChanceBadge" class="tideChanceBadge">計算中</span>
+    </div>
+    <div id="tideChanceMain" class="tideChanceMain">潮の動きから計算中…</div>
+    <div id="tideChanceSub" class="tideChanceSub">上げ3分・下げ7分を基準にした潮回りの目安</div>
   </div>
 
   <div id="tideChartWrap">
@@ -327,6 +341,75 @@ function tideExtrema(times,vals){
   }
   return out;
 }
+function tideChanceWindows(allExt){
+  const out=[];
+  for(let i=0;i<allExt.length-1;i++){
+    const a=allExt[i],b=allExt[i+1];
+    const rising=a.type==="low"&&b.type==="high";
+    const falling=a.type==="high"&&b.type==="low";
+    if(!rising&&!falling)continue;
+    const span=b.time.getTime()-a.time.getTime();
+    if(span<=0)continue;
+
+    // 釣りでよく使われる目安「上げ3分・下げ7分」。
+    // ピンポイントではなく前後1分ぶんを「狙い目帯」として表示。
+    const target=rising?.30:.70;
+    const lo=Math.max(0,target-.10);
+    const hi=Math.min(1,target+.10);
+    out.push({
+      phase:rising?"上げ":"下げ",
+      label:rising?"上げ3分":"下げ7分",
+      start:new Date(a.time.getTime()+span*lo),
+      peak:new Date(a.time.getTime()+span*target),
+      end:new Date(a.time.getTime()+span*hi)
+    });
+  }
+  return out;
+}
+function countdownText(ms){
+  const min=Math.max(0,Math.round(ms/60000));
+  if(min<60)return"あと"+min+"分";
+  const h=Math.floor(min/60),m=min%60;
+  return"あと"+h+"時間"+(m?m+"分":"");
+}
+function renderTideChance(day,allExt){
+  const badge=$("tideChanceBadge"),main=$("tideChanceMain"),sub=$("tideChanceSub");
+  const windows=tideChanceWindows(allExt);
+  const now=new Date();
+
+  if(sameDay(day,now)){
+    const current=windows.find(w=>now>=w.start&&now<=w.end);
+    if(current){
+      badge.textContent="◎ 今";
+      main.textContent=current.label+"　"+fmtHM(current.start)+"〜"+fmtHM(current.end);
+      sub.textContent="いま狙い目の時間帯・残り約"+Math.max(1,Math.round((current.end-now)/60000))+"分　｜　潮だけで見た目安";
+      return;
+    }
+    const next=windows.find(w=>w.start>now);
+    if(next){
+      badge.textContent="次";
+      main.textContent=fmtHM(next.start)+"〜"+fmtHM(next.end)+"　"+next.label;
+      sub.textContent=countdownText(next.start-now)+"で狙い目入り　｜　潮だけで見た目安";
+      return;
+    }
+    badge.textContent="--";
+    main.textContent="次の狙い目を計算できません";
+    sub.textContent="潮位データの範囲外です";
+    return;
+  }
+
+  const from=dayStart(day),to=new Date(from);to.setDate(to.getDate()+1);
+  const dayWindows=windows.filter(w=>w.end>=from&&w.start<to);
+  if(dayWindows.length){
+    badge.textContent="この日";
+    main.textContent=dayWindows.slice(0,2).map(w=>fmtHM(w.start)+"〜"+fmtHM(w.end)+" "+w.label).join(" / ");
+    sub.textContent="黄色帯が潮回りの狙い目　｜　上げ3分・下げ7分の目安";
+  }else{
+    badge.textContent="--";
+    main.textContent="狙い目を計算できません";
+    sub.textContent="この日の潮位極値データが不足しています";
+  }
+}
 async function fetchTide(){
   const key=center.lat.toFixed(2)+","+center.lng.toFixed(2);
   const cached=tideCache.get(key);
@@ -430,8 +513,17 @@ function renderTideChartForDay(times,vals,day,events){
     html+='<line x1="'+gx+'" y1="'+T+'" x2="'+gx+'" y2="'+(H-B)+'" stroke="rgba(255,255,255,.08)" stroke-width="1"/>'+
       '<text x="'+(gx-12)+'" y="'+(H-9)+'" fill="#91a9b8" font-size="11">'+h+'時</text>';
   });
-  html+='<path d="'+area+'" fill="url(#tideFill)" stroke="none"/>'+
-    '<path d="'+path+'" fill="none" stroke="#58bcff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'+
+  html+='<path d="'+area+'" fill="url(#tideFill)" stroke="none"/>';
+
+  // 上げ3分・下げ7分の狙い目帯を黄色で表示
+  tideChanceWindows(tideExtrema(times,vals)).forEach(w=>{
+    if(w.end<from||w.start>to)return;
+    const sx=x(Math.max(from.getTime(),w.start.getTime()));
+    const ex=x(Math.min(to.getTime(),w.end.getTime()));
+    html+='<rect x="'+sx+'" y="'+T+'" width="'+Math.max(2,ex-sx)+'" height="'+(H-T-B)+'" fill="rgba(255,213,74,.13)"/>';
+  });
+
+  html+='<path d="'+path+'" fill="none" stroke="#58bcff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'+
     '<text x="3" y="13" fill="#91a9b8" font-size="10">(m)</text>';
   events.forEach(e=>{
     const cx=x(e.time.getTime()),cy=y(e.value);
@@ -484,6 +576,7 @@ function renderSelectedTideDay(data){
 
   const allExt=tideExtrema(times,vals);
   const dayEvents=allExt.filter(e=>dayKey(e.time)===dayKey(day));
+  renderTideChance(day,allExt);
   const ref=selectedReferenceTime(day);
   const idx=nearestIndex(times,ref);
   const prev=[...allExt].reverse().find(e=>e.i<=idx);
@@ -508,7 +601,7 @@ function renderSelectedTideDay(data){
   $("tideLoading").style.display=ok?"none":"block";
   $("tideLoading").textContent=ok?"":"この日の潮位データがありません";
   $("tideChart").style.display=ok?"block":"none";
-  $("tideChartTitle").textContent=(day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定潮位";
+  $("tideChartTitle").textContent=(day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定潮位　｜　黄色帯＝狙い目";
 
   const frag=document.createDocumentFragment();
   const eventsToShow=dayEvents.slice(0,4);
