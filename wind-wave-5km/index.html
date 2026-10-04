@@ -286,7 +286,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div class="tideNote">
     日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
     上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
-    海水温は約8km格子の広域推定、海面高も約8km格子の海洋モデルです。海面高は潮汐を含みますが全球平均海面基準で、JMA潮位表の基準面とは直接比較できません。湾奥・港内・防波堤周辺では実測との差に注意。
+    舞鶴・敦賀の気象庁潮位表地点が約80km以内なら、気象庁の公式天文潮位予測を優先します。取得できない地域はOpen-Meteo海洋モデルへ自動フォールバック。海水温は常に約8km格子の広域推定です。
   </div>
 </section>
 
@@ -306,8 +306,14 @@ let selectedForecastTime=null;
 let tideLoading=false;
 let tideClockTimer=null;
 let tideCache=new Map();
+let jmaTideCache=new Map();
 let tideSelectedDateKey=null;
 let tideData=null;
+const JMA_TIDE_STATIONS=[
+  {code:"MZ",name:"舞鶴",lat:35+29/60,lng:135+23/60},
+  {code:"XM",name:"敦賀",lat:35+40/60,lng:136+4/60}
+];
+const JMA_TIDE_MAX_KM=80;
 const MODEL_INFO={
   best_match:{label:"Best Match（自動）",param:"best_match",maxHours:168,gust:true,note:"Open-Meteoが地点ごとに最適モデルを自動選択"},
   jma_msm:{label:"JMA MSM",param:"jma_msm",maxHours:96,gust:false,note:"気象庁 MSM・約5km・約4日先まで"},
@@ -708,6 +714,126 @@ async function fetchTide(){
   tideCache.set(key,{ts:Date.now(),data});
   return data;
 }
+function nearestJmaTideStation(){
+  let best=null;
+  JMA_TIDE_STATIONS.forEach(st=>{
+    const dist=hav(center,{lat:st.lat,lng:st.lng});
+    if(!best||dist<best.dist)best={...st,dist};
+  });
+  return best&&best.dist<=JMA_TIDE_MAX_KM?best:null;
+}
+function jmaDateTime(year,month,day,hhmm){
+  const raw=String(hhmm).trim().padStart(4,"0");
+  const hh=Number(raw.slice(0,2)),mm=Number(raw.slice(2,4));
+  if(!Number.isFinite(hh)||!Number.isFinite(mm)||hh>23||mm>59)return null;
+  const iso=year+"-"+String(month).padStart(2,"0")+"-"+String(day).padStart(2,"0")+
+    "T"+String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0")+":00+09:00";
+  return new Date(iso);
+}
+function parseJmaTideText(text,station,yearHint){
+  const times=[],vals=[],events=[];
+  String(text||"").split("\n").forEach(rawLine=>{
+    const line=rawLine.replace(/\r$/,"");
+    if(line.length<136)return;
+
+    const yy=Number(line.slice(72,74));
+    const month=Number(line.slice(74,76));
+    const day=Number(line.slice(76,78));
+    const code=line.slice(78,80).trim();
+    if(!Number.isFinite(yy)||!Number.isFinite(month)||!Number.isFinite(day)||code!==station.code)return;
+    const year=Math.floor(Number(yearHint)/100)*100+yy;
+
+    for(let h=0;h<24;h++){
+      const cm=Number(line.slice(h*3,h*3+3));
+      if(!Number.isFinite(cm)||cm===999)continue;
+      const dt=jmaDateTime(year,month,day,String(h).padStart(2,"0")+"00");
+      if(dt){times.push(dt.toISOString());vals.push(cm/100);}
+    }
+
+    const parseEvents=(start,type)=>{
+      for(let n=0;n<4;n++){
+        const p=start+n*7;
+        const timeRaw=line.slice(p,p+4).trim();
+        const cm=Number(line.slice(p+4,p+7));
+        if(!timeRaw||timeRaw==="9999"||!Number.isFinite(cm)||cm===999)continue;
+        const dt=jmaDateTime(year,month,day,timeRaw);
+        if(dt)events.push({i:null,type,time:dt,value:cm/100,cm,official:true});
+      }
+    };
+    parseEvents(80,"high");
+    parseEvents(108,"low");
+  });
+
+  const zipped=times.map((t,i)=>({t,v:vals[i]})).sort((a,b)=>new Date(a.t)-new Date(b.t));
+  events.sort((a,b)=>a.time-b.time);
+  return{
+    hourly:{time:zipped.map(x=>x.t),sea_level_height_msl:zipped.map(x=>x.v)},
+    events
+  };
+}
+async function fetchJmaTable(year,station){
+  const key=year+":"+station.code;
+  if(jmaTideCache.has(key))return jmaTideCache.get(key);
+  const url=new URL("../jma-tide/"+year+"/"+station.code+".txt",location.href);
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok)throw new Error("JMA潮位表 "+r.status);
+  const text=await r.text();
+  const parsed=parseJmaTideText(text,station,year);
+  jmaTideCache.set(key,parsed);
+  return parsed;
+}
+async function fetchJmaTideForCenter(){
+  const station=nearestJmaTideStation();
+  if(!station)return null;
+
+  const a=new Date();a.setDate(a.getDate()-2);
+  const b=new Date();b.setDate(b.getDate()+9);
+  const years=[...new Set([a.getFullYear(),new Date().getFullYear(),b.getFullYear()])];
+  const parts=[];
+  for(const year of years){
+    try{parts.push(await fetchJmaTable(year,station));}catch(e){}
+  }
+  if(!parts.length)return null;
+
+  const pairs=[],events=[];
+  parts.forEach(p=>{
+    const t=p.hourly.time||[],v=p.hourly.sea_level_height_msl||[];
+    t.forEach((x,i)=>pairs.push({t:x,v:v[i]}));
+    events.push(...(p.events||[]));
+  });
+  pairs.sort((x,y)=>new Date(x.t)-new Date(y.t));
+  events.sort((x,y)=>x.time-y.time);
+  if(!pairs.length||!events.length)return null;
+
+  return{
+    hourly:{time:pairs.map(x=>x.t),sea_level_height_msl:pairs.map(x=>x.v)},
+    _jmaEvents:events,
+    _jmaStation:station,
+    _source:"jma"
+  };
+}
+function combineTideSources(marine,jma){
+  if(!jma){
+    if(marine)marine._source="openmeteo";
+    return marine;
+  }
+  const mh=marine&&marine.hourly?marine.hourly:{};
+  return{
+    ...(marine||{}),
+    hourly:{
+      ...mh,
+      time:jma.hourly.time,
+      sea_level_height_msl:jma.hourly.sea_level_height_msl
+    },
+    _source:"jma",
+    _jmaEvents:jma._jmaEvents,
+    _jmaStation:jma._jmaStation,
+    _seaTempTime:mh.time||[],
+    _seaTempValues:mh.sea_surface_temperature||[],
+    _marineLatitude:marine?Number(marine.latitude):null,
+    _marineLongitude:marine?Number(marine.longitude):null
+  };
+}
 function selectedDayDate(){
   if(tideSelectedDateKey){
     const p=tideSelectedDateKey.split("-").map(Number);
@@ -774,7 +900,7 @@ function selectedReferenceTime(day){
   if(forecast&&sameDay(forecast,day))return forecast;
   const d=new Date(day);d.setHours(12,0,0,0);return d;
 }
-function renderTideChartForDay(times,vals,day,events){
+function renderTideChartForDay(times,vals,day,events,allExtForChance=null){
   const svg=$("tideChart");
   const from=dayStart(day);
   const to=new Date(from);to.setDate(to.getDate()+1);
@@ -808,7 +934,8 @@ function renderTideChartForDay(times,vals,day,events){
   html+='<path d="'+area+'" fill="url(#tideFill)" stroke="none"/>';
 
   // 上げ3分・下げ7分の狙い目帯を黄色で表示
-  tideChanceWindows(tideExtrema(times,vals),times,vals).forEach(w=>{
+  const chanceExt=allExtForChance&&allExtForChance.length?allExtForChance:tideExtrema(times,vals);
+  tideChanceWindows(chanceExt,times,vals).forEach(w=>{
     if(w.end<from||w.start>to)return;
     const sx=x(Math.max(from.getTime(),w.start.getTime()));
     const ex=x(Math.min(to.getTime(),w.end.getTime()));
@@ -854,8 +981,8 @@ function renderTideChartForDay(times,vals,day,events){
 }
 function renderSeaTemperature(data,day,ref){
   const h=data.hourly||{};
-  const times=h.time||[];
-  const temps=h.sea_surface_temperature||[];
+  const times=(data._seaTempTime&&data._seaTempTime.length)?data._seaTempTime:(h.time||[]);
+  const temps=(data._seaTempValues&&data._seaTempValues.length)?data._seaTempValues:(h.sea_surface_temperature||[]);
   const value=$("seaTempValue"),trend=$("seaTempTrend"),meta=$("seaTempMeta");
 
   if(!times.length||!temps.length){
@@ -890,7 +1017,10 @@ function renderSeaTemperature(data,day,ref){
   const when=sameDay(day,new Date())
     ?"現在 "+fmtHM(ref)
     :(day.getMonth()+1)+"/"+day.getDate()+" "+fmtHM(ref);
-  const model={lat:Number(data.latitude),lng:Number(data.longitude)};
+  const model={
+    lat:Number.isFinite(data._marineLatitude)?data._marineLatitude:Number(data.latitude),
+    lng:Number.isFinite(data._marineLongitude)?data._marineLongitude:Number(data.longitude)
+  };
   const dist=Number.isFinite(model.lat)?hav(center,model):NaN;
   const distText=Number.isFinite(dist)?"・海洋格子まで約"+dist.toFixed(1)+"km":"";
   meta.textContent=when+" の広域推定｜約8km格子・元データ6時間ごと"+distText+"｜港内/岸際は差に注意";
@@ -903,13 +1033,15 @@ function renderSelectedTideDay(data){
   const day=selectedDayDate();
   const m=moonInfo(day);
   const tideName=tideNameFromMoonAge(m.age);
-  $("tideSelectedTitle").textContent=fmtDayTitle(day);
+  $("tideSelectedTitle").textContent=fmtDayTitle(day)+(data._source==="jma"?"　気象庁公式":"");
   $("moonIcon").textContent=m.icon;
   $("moonName").textContent=m.name+"　"+Math.round(m.illumination)+"%";
   $("moonAge").textContent="月齢 "+m.age.toFixed(1);
   $("moonHint").textContent=tideName+"（月齢からの目安）";
 
-  const allExt=tideExtrema(times,vals);
+  const allExt=(data._source==="jma"&&data._jmaEvents&&data._jmaEvents.length)
+    ?data._jmaEvents
+    :tideExtrema(times,vals);
   const dayEvents=allExt.filter(e=>dayKey(e.time)===dayKey(day));
   renderCurrentExpectation(day,allExt,times,vals);
   renderTideChance(day,allExt,times,vals);
@@ -935,23 +1067,31 @@ function renderSelectedTideDay(data){
   const nextBits=[];
   if(nextHigh)nextBits.push("満潮 "+(nextHigh.time.getMonth()+1)+"/"+nextHigh.time.getDate()+" "+fmtHM10(nextHigh.time));
   if(nextLow)nextBits.push("干潮 "+(nextLow.time.getMonth()+1)+"/"+nextLow.time.getDate()+" "+fmtHM10(nextLow.time));
-  $("tideStateSub").textContent="モデル海面高 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
+  const tideValueText=data._source==="jma"
+    ?("JMA天文潮位 "+(Number.isFinite(refValue)?"約"+Math.round(refValue*100)+"cm":"--"))
+    :("モデル海面高 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--"));
+  $("tideStateSub").textContent=tideValueText+" / "+(nextBits.join("・")||"次の極値なし");
   $("tideProgressBar").style.width=Math.round(pct)+"%";
 
-  const ok=renderTideChartForDay(times,vals,day,dayEvents);
+  const ok=renderTideChartForDay(times,vals,day,dayEvents,allExt);
   $("tideLoading").style.display=ok?"none":"block";
   $("tideLoading").textContent=ok?"":"この日の潮位データがありません";
   $("tideChart").style.display=ok?"block":"none";
-  $("tideChartTitle").textContent=(day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定海面高（潮汐含む）｜ 黄色帯＝狙い目";
+  $("tideChartTitle").textContent=data._source==="jma"
+    ?((day.getMonth()+1)+"/"+day.getDate()+"　気象庁公式 潮位表（天文潮位）｜ 黄色帯＝狙い目")
+    :((day.getMonth()+1)+"/"+day.getDate()+"　0〜24時の推定海面高（潮汐含む）｜ 黄色帯＝狙い目");
 
   const frag=document.createDocumentFragment();
   const eventsToShow=dayEvents.slice(0,4);
   eventsToShow.forEach(e=>{
     const el=document.createElement("div");
     el.className="tideEvent";
+    const heightText=data._source==="jma"
+      ?("気象庁 "+Math.round(e.value*100)+" cm")
+      :("モデル海面高 "+e.value.toFixed(2)+" m");
     el.innerHTML='<div class="kind">'+(e.type==="high"?"🔴 満潮":"🔵 干潮")+'</div>'+
-      '<div class="time">'+fmtHM10(e.time)+'</div>'+
-      '<div class="height">モデル海面高 '+e.value.toFixed(2)+' m</div>';
+      '<div class="time">'+(data._source==="jma"?fmtHM(e.time):fmtHM10(e.time))+'</div>'+
+      '<div class="height">'+heightText+'</div>';
     frag.appendChild(el);
   });
   if(!eventsToShow.length){
@@ -975,12 +1115,27 @@ async function loadTidePanel(){
   $("tideEvents").replaceChildren();
   openTidePanel();
   try{
-    tideData=await fetchTide();
+    const [marineResult,jmaResult]=await Promise.allSettled([
+      fetchTide(),
+      fetchJmaTideForCenter()
+    ]);
+    const marine=marineResult.status==="fulfilled"?marineResult.value:null;
+    const jma=jmaResult.status==="fulfilled"?jmaResult.value:null;
+    tideData=combineTideSources(marine,jma);
+
+    if(!tideData)throw new Error("潮位データなし");
     const h=tideData.hourly||{};
     if(!(h.time&&h.time.length&&h.sea_level_height_msl&&h.sea_level_height_msl.length))throw new Error("潮位データなし");
-    const model={lat:Number(tideData.latitude),lng:Number(tideData.longitude)};
-    const dist=Number.isFinite(model.lat)?hav(center,model):NaN;
-    $("tidePlace").textContent=placeName+"　"+(Number.isFinite(dist)?"最寄海域 "+dist.toFixed(0)+"km":"1週間");
+
+    if(tideData._source==="jma"&&tideData._jmaStation){
+      const st=tideData._jmaStation;
+      $("tidePlace").textContent=placeName+"　気象庁 "+st.name+"（約"+st.dist.toFixed(0)+"km）を優先";
+    }else if(marine){
+      const model={lat:Number(marine.latitude),lng:Number(marine.longitude)};
+      const dist=Number.isFinite(model.lat)?hav(center,model):NaN;
+      $("tidePlace").textContent=placeName+"　"+(Number.isFinite(dist)?"最寄海域 "+dist.toFixed(0)+"km":"1週間");
+    }
+
     renderTideWeek();
     renderSelectedTideDay(tideData);
   }catch(e){
