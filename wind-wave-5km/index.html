@@ -135,6 +135,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .tideEvent .kind{font-size:10px;color:#b6cad6}.tideEvent .time{font-size:16px;font-weight:900;margin-top:2px}.tideEvent .height{font-size:10px;color:#a9bdca;margin-top:2px}
 .tideNote{font-size:8px;color:#8fa8b7;line-height:1.45;margin-top:7px}
 .tideLoading{padding:22px 8px;text-align:center;color:#a9bdca}
+.tideSwipeZone{touch-action:pan-y}
 .dragging .hint{display:none}
 </style>
 </head>
@@ -225,7 +226,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div id="tideWeek"></div>
   <div id="tideSelectedTitle">選択日の潮見表</div>
 
-  <div class="tideHero">
+  <div class="tideHero tideSwipeZone">
     <div class="tideCard">
       <div class="moonRow">
         <div id="moonIcon" class="moonIcon">🌙</div>
@@ -244,7 +245,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     </div>
   </div>
 
-  <div id="seaTempCard" class="seaTempCard">
+  <div id="seaTempCard" class="seaTempCard tideSwipeZone">
     <div class="seaTempTop">
       <div>
         <div class="seaTempLabel">🌡 海水温（海面）</div>
@@ -255,7 +256,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     <div id="seaTempMeta" class="seaTempMeta">Open-Meteo海洋モデルの海面水温を表示</div>
   </div>
 
-  <div id="tideScore" class="tideScore">
+  <div id="tideScore" class="tideScore tideSwipeZone">
     <div class="tideScoreTop">
       <div>
         <div class="tideScoreTitle">🎣 現在の潮期待度</div>
@@ -268,7 +269,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     <div class="tideScoreNote">※干潮=0・満潮=10の潮位基準。風・波は点数外。釣果確率ではなく経験則ベースの相対目安です</div>
   </div>
 
-  <div id="tideChance" class="tideChance">
+  <div id="tideChance" class="tideChance tideSwipeZone">
     <div class="tideChanceHead">
       <span id="tideChanceTitle">🎯 今からの狙い目</span>
       <span id="tideChanceBadge" class="tideChanceBadge">計算中</span>
@@ -277,12 +278,12 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     <div id="tideChanceSub" class="tideChanceSub">上げ3分・下げ7分を基準にした潮回りの目安</div>
   </div>
 
-  <div id="tideChartWrap">
+  <div id="tideChartWrap" class="tideSwipeZone">
     <div id="tideChartTitle">0〜24時の潮位カーブ</div>
     <div id="tideLoading" class="tideLoading">潮データを取得します</div>
     <svg id="tideChart" viewBox="0 0 720 230" preserveAspectRatio="none" style="display:none"></svg>
   </div>
-  <div id="tideEvents" class="tideEvents"></div>
+  <div id="tideEvents" class="tideEvents tideSwipeZone"></div>
   <div class="tideNote">
     日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
     上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
@@ -1812,23 +1813,26 @@ $("tideBtn").addEventListener("click",loadTidePanel);
 $("tideClose").addEventListener("click",closeTidePanel);
 $("tideBackdrop").addEventListener("click",closeTidePanel);
 
-// 潮見表を左右にスワイプ → 前日 / 翌日
+// 潮見表の主要エリアを左右にスワイプ → 前日 / 翌日
+// 縦方向はブラウザの通常スクロールに任せる。
 (function(){
   let sx=0,sy=0,active=false;
-  const targets=[$("tideChartWrap"),$("tideChance")];
+  const targets=[...document.querySelectorAll(".tideSwipeZone")];
   targets.forEach(el=>{
     el.addEventListener("touchstart",e=>{
       const t=e.touches&&e.touches[0];
       if(!t)return;
       sx=t.clientX; sy=t.clientY; active=true;
     },{passive:true});
+    el.addEventListener("touchcancel",()=>{active=false},{passive:true});
     el.addEventListener("touchend",e=>{
       if(!active)return;
       active=false;
       const t=e.changedTouches&&e.changedTouches[0];
       if(!t)return;
       const dx=t.clientX-sx,dy=t.clientY-sy;
-      if(Math.abs(dx)<55||Math.abs(dx)<=Math.abs(dy)*1.25)return;
+      if(Math.abs(dx)<45)return;
+      if(Math.abs(dx)<=Math.abs(dy)*1.15)return;
       shiftTideDay(dx<0?1:-1);
     },{passive:true});
   });
