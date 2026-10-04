@@ -247,8 +247,8 @@ button.primary{background:#58bcff;color:#00131f;border:0}
       <div id="tideScoreGrade" class="tideScoreGrade">計算中</div>
     </div>
     <div class="tideScoreBar"><div id="tideScoreBar"></div></div>
-    <div id="tideScoreBreakdown" class="tideScoreBreakdown">潮の進み具合・干満差から計算します</div>
-    <div class="tideScoreNote">※風・波は点数に含めません。釣果確率ではなく潮条件の相対的な目安です</div>
+    <div id="tideScoreBreakdown" class="tideScoreBreakdown">潮位の進み具合・当地の潮位差から計算します</div>
+    <div class="tideScoreNote">※干潮=0・満潮=10の潮位基準。風・波は点数外。釣果確率ではなく経験則ベースの相対目安です</div>
   </div>
 
   <div id="tideChance" class="tideChance">
@@ -267,8 +267,8 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   </div>
   <div id="tideEvents" class="tideEvents"></div>
   <div class="tideNote">
-    日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値。
-    潮名は月齢からの目安で、沿岸の実際の潮位とは差が出ることがあります。
+    日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
+    上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
   </div>
 </section>
 
@@ -332,19 +332,51 @@ function dayKey(date){
 function sameDay(a,b){return dayKey(a)===dayKey(b)}
 function jpWeekday(date){return["日","月","火","水","木","金","土"][date.getDay()]}
 function moonInfo(date){
-  const syn=29.530588853;
-  const ref=Date.UTC(2000,0,6,18,14,0);
-  let age=((date.getTime()-ref)/86400000)%syn;
-  if(age<0)age+=syn;
-  const illumination=(1-Math.cos(2*Math.PI*age/syn))/2*100;
+  // 太陽・月の簡易位置計算。平均朔望月を固定で積み上げるだけの方式より
+  // 月齢と照度の長期ずれを抑える。
+  const rad=Math.PI/180,dayMs=86400000,J1970=2440588,J2000=2451545;
+  const e=rad*23.4397;
+  const days=(date.getTime()/dayMs-.5+J1970)-J2000;
+  const ra=(l,b)=>Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e),Math.cos(l));
+  const dec=(l,b)=>Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+
+  const M=rad*(357.5291+.98560028*days);
+  const C=rad*(1.9148*Math.sin(M)+.02*Math.sin(2*M)+.0003*Math.sin(3*M));
+  const Ls=M+C+rad*102.9372+Math.PI;
+  const sun={ra:ra(Ls,0),dec:dec(Ls,0)};
+
+  const L=rad*(218.316+13.176396*days);
+  const Mm=rad*(134.963+13.064993*days);
+  const F=rad*(93.272+13.229350*days);
+  const lm=L+rad*6.289*Math.sin(Mm);
+  const bm=rad*5.128*Math.sin(F);
+  const moon={ra:ra(lm,bm),dec:dec(lm,bm),dist:385001-20905*Math.cos(Mm)};
+
+  const sdist=149598000;
+  const cosPhi=clamp(
+    Math.sin(sun.dec)*Math.sin(moon.dec)+
+    Math.cos(sun.dec)*Math.cos(moon.dec)*Math.cos(sun.ra-moon.ra),
+    -1,1
+  );
+  const phi=Math.acos(cosPhi);
+  const inc=Math.atan2(sdist*Math.sin(phi),moon.dist-sdist*Math.cos(phi));
+  const angle=Math.atan2(
+    Math.cos(sun.dec)*Math.sin(sun.ra-moon.ra),
+    Math.sin(sun.dec)*Math.cos(moon.dec)-
+    Math.cos(sun.dec)*Math.sin(moon.dec)*Math.cos(sun.ra-moon.ra)
+  );
+  const illumination=(1+Math.cos(inc))/2*100;
+  const phase=clamp(.5+.5*inc*(angle<0?-1:1)/Math.PI,0,1);
+  const age=phase*29.530588853;
+
   let icon="🌑",name="新月";
-  if(age<1.85||age>=27.68){icon="🌑";name="新月";}
-  else if(age<5.54){icon="🌒";name="三日月";}
-  else if(age<9.23){icon="🌓";name="上弦";}
-  else if(age<12.92){icon="🌔";name="満月前";}
-  else if(age<16.61){icon="🌕";name="満月";}
-  else if(age<20.30){icon="🌖";name="満月後";}
-  else if(age<23.99){icon="🌗";name="下弦";}
+  if(phase<.0625||phase>=.9375){icon="🌑";name="新月";}
+  else if(phase<.1875){icon="🌒";name="三日月";}
+  else if(phase<.3125){icon="🌓";name="上弦";}
+  else if(phase<.4375){icon="🌔";name="満月前";}
+  else if(phase<.5625){icon="🌕";name="満月";}
+  else if(phase<.6875){icon="🌖";name="満月後";}
+  else if(phase<.8125){icon="🌗";name="下弦";}
   else{icon="🌘";name="新月前";}
   return{age,illumination,icon,name};
 }
@@ -412,27 +444,88 @@ function tideSegmentAt(allExt,at){
   const falling=prev.type==="high"&&next.type==="low";
   return rising||falling?{prev,next,rising,falling}:null;
 }
-function tideChanceWindows(allExt){
+function tideValueAt(times,vals,at){
+  const ms=at.getTime();
+  for(let i=0;i<times.length-1;i++){
+    const a=new Date(times[i]).getTime(),b=new Date(times[i+1]).getTime();
+    if(ms<a||ms>b)continue;
+    const va=Number(vals[i]),vb=Number(vals[i+1]);
+    if(!Number.isFinite(va)||!Number.isFinite(vb))return null;
+    const p=(ms-a)/Math.max(1,b-a);
+    return va+(vb-va)*p;
+  }
+  return null;
+}
+function tideRangeReference(allExt){
+  const ranges=[];
+  for(let i=0;i<allExt.length-1;i++){
+    const a=allExt[i],b=allExt[i+1];
+    if(a.type===b.type)continue;
+    const r=Math.abs(Number(b.value)-Number(a.value));
+    if(Number.isFinite(r)&&r>.005)ranges.push(r);
+  }
+  if(!ranges.length)return null;
+  ranges.sort((a,b)=>a-b);
+  const idx=Math.min(ranges.length-1,Math.max(0,Math.round((ranges.length-1)*.85)));
+  return ranges[idx];
+}
+function findTideCrossingTime(times,vals,from,to,target){
+  const fromMs=from.getTime(),toMs=to.getTime();
+  for(let i=0;i<times.length-1;i++){
+    const aMs=new Date(times[i]).getTime(),bMs=new Date(times[i+1]).getTime();
+    if(bMs<fromMs||aMs>toMs)continue;
+    const va=Number(vals[i]),vb=Number(vals[i+1]);
+    if(!Number.isFinite(va)||!Number.isFinite(vb)||Math.abs(vb-va)<1e-9)continue;
+    const lo=Math.min(va,vb),hi=Math.max(va,vb);
+    if(target<lo||target>hi)continue;
+    const p=(target-va)/(vb-va);
+    if(p<0||p>1)continue;
+    const ms=aMs+(bMs-aMs)*p;
+    if(ms>=fromMs&&ms<=toMs)return new Date(ms);
+  }
+  return null;
+}
+function fmtHM10(date){
+  const d=new Date(date);
+  d.setSeconds(0,0);
+  d.setMinutes(Math.round(d.getMinutes()/10)*10);
+  return fmtHM(d);
+}
+function tideChanceWindows(allExt,times,vals){
   const out=[];
   for(let i=0;i<allExt.length-1;i++){
     const a=allExt[i],b=allExt[i+1];
     const rising=a.type==="low"&&b.type==="high";
     const falling=a.type==="high"&&b.type==="low";
     if(!rising&&!falling)continue;
+
+    const low=rising?Number(a.value):Number(b.value);
+    const high=rising?Number(b.value):Number(a.value);
+    if(!Number.isFinite(low)||!Number.isFinite(high)||high<=low)continue;
+
+    // 「分」は時間経過ではなく、干潮=0・満潮=10とした潮位の割合。
+    // 上げ3分=0.3、下げ7分=0.7。前後1分を黄色帯にする。
+    const qStart=rising?.20:.80;
+    const qPeak =rising?.30:.70;
+    const qEnd  =rising?.40:.60;
+    const level=q=>low+(high-low)*q;
+
+    let start=findTideCrossingTime(times,vals,a.time,b.time,level(qStart));
+    let peak =findTideCrossingTime(times,vals,a.time,b.time,level(qPeak));
+    let end  =findTideCrossingTime(times,vals,a.time,b.time,level(qEnd));
+
+    // 小さなモデル揺れで交点が拾えない場合は、潮止まりから序盤側の時間帯へフォールバック。
     const span=b.time.getTime()-a.time.getTime();
     if(span<=0)continue;
+    if(!start)start=new Date(a.time.getTime()+span*.20);
+    if(!peak)peak=new Date(a.time.getTime()+span*.30);
+    if(!end)end=new Date(a.time.getTime()+span*.40);
 
-    // 釣りでよく使われる目安「上げ3分・下げ7分」。
-    // ピンポイントではなく前後1分ぶんを「狙い目帯」として表示。
-    const target=rising?.30:.70;
-    const lo=Math.max(0,target-.10);
-    const hi=Math.min(1,target+.10);
+    if(end<start){const tmp=start;start=end;end=tmp;}
     out.push({
       phase:rising?"上げ":"下げ",
       label:rising?"上げ3分":"下げ7分",
-      start:new Date(a.time.getTime()+span*lo),
-      peak:new Date(a.time.getTime()+span*target),
-      end:new Date(a.time.getTime()+span*hi)
+      start,peak,end
     });
   }
   return out;
@@ -450,38 +543,46 @@ function expectationGrade(score){
   if(score>=40)return"△ やや弱い";
   return"× 厳しめ";
 }
-function currentTideScore(allExt,now){
+function currentTideScore(allExt,times,vals,now){
   const seg=tideSegmentAt(allExt,now);
   if(!seg)return{
     total:null,timingScore:null,rangeScore:null,label:"潮データ不足",range:null,bun:null,phase:"--"
   };
   const {prev,next,rising}=seg;
+  const current=tideValueAt(times,vals,now);
+  if(!Number.isFinite(current))return{
+    total:null,timingScore:null,rangeScore:null,label:"潮位補間不可",range:null,bun:null,phase:"--"
+  };
 
-  const p=clamp((now-prev.time)/(next.time-prev.time),0,1);
+  const low=rising?Number(prev.value):Number(next.value);
+  const high=rising?Number(next.value):Number(prev.value);
+  if(!Number.isFinite(low)||!Number.isFinite(high)||high<=low)return{
+    total:null,timingScore:null,rangeScore:null,label:"潮位差不足",range:null,bun:null,phase:"--"
+  };
+
+  // qは干潮=0、満潮=1の潮位割合。時間の経過率ではない。
+  const q=clamp((current-low)/(high-low),0,1);
   const target=rising?.30:.70;
-
-  // タイミング80点：上げ3分 / 下げ7分を頂点、潮止まり両端を0点に近づける
   let rel;
-  if(p<=target)rel=target>0?p/target:0;
-  else rel=(1-target)>0?(1-p)/(1-target):0;
+  if(q<=target)rel=target>0?q/target:0;
+  else rel=(1-target)>0?(1-q)/(1-target):0;
   const timingScore=Math.round(80*clamp(rel,0,1));
 
-  // 干満差20点：現在の干潮↔満潮区間の潮位差。0.40m以上で満点として相対評価。
-  const range=Math.abs(Number(next.value)-Number(prev.value));
-  const rangeScore=Number.isFinite(range)?Math.round(20*clamp(range/.40,0,1)):0;
+  // 固定0.40mではなく、同じ地点の約1週間内の潮位差に対する相対評価。
+  const range=Math.abs(high-low);
+  const ref=tideRangeReference(allExt);
+  const rangeScore=Number.isFinite(ref)&&ref>0
+    ?Math.round(20*clamp(range/ref,0,1))
+    :10;
   const total=clamp(timingScore+rangeScore,0,100);
 
   return{
-    total,
-    timingScore,
-    rangeScore,
-    label:(rising?"上げ":"下げ")+(p*10).toFixed(1)+"分",
-    range:Number.isFinite(range)?range:null,
-    bun:p*10,
-    phase:rising?"上げ":"下げ"
+    total,timingScore,rangeScore,
+    label:(rising?"上げ":"下げ")+(q*10).toFixed(1)+"分",
+    range,bun:q*10,phase:rising?"上げ":"下げ",current
   };
 }
-function renderCurrentExpectation(day,allExt){
+function renderCurrentExpectation(day,allExt,times,vals){
   const root=$("tideScore");
   if(!sameDay(day,new Date())){
     root.style.display="none";
@@ -489,7 +590,7 @@ function renderCurrentExpectation(day,allExt){
   }
   root.style.display="block";
 
-  const tide=currentTideScore(allExt,new Date());
+  const tide=currentTideScore(allExt,times,vals,new Date());
   if(!Number.isFinite(tide.total)){
     $("tideScoreValue").innerHTML='--<small>/100</small>';
     $("tideScoreGrade").textContent="潮データ待ち";
@@ -503,11 +604,11 @@ function renderCurrentExpectation(day,allExt){
   $("tideScoreBar").style.width=tide.total+"%";
   $("tideScoreBreakdown").textContent=
     "タイミング "+tide.timingScore+"/80（"+tide.label+"）"+
-    " ｜ 干満差 "+tide.rangeScore+"/20（"+(Number.isFinite(tide.range)?tide.range.toFixed(2)+"m":"--")+"）";
+    " ｜ 潮位差 "+tide.rangeScore+"/20（"+(Number.isFinite(tide.range)?tide.range.toFixed(2)+"m":"--")+"・当地1週間内相対）";
 }
-function renderTideChance(day,allExt){
+function renderTideChance(day,allExt,times,vals){
   const title=$("tideChanceTitle"),badge=$("tideChanceBadge"),main=$("tideChanceMain"),sub=$("tideChanceSub");
-  const windows=tideChanceWindows(allExt);
+  const windows=tideChanceWindows(allExt,times,vals);
   const now=new Date();
   const today=sameDay(day,now);
 
@@ -519,15 +620,15 @@ function renderTideChance(day,allExt){
     const current=windows.find(w=>now>=w.start&&now<=w.end);
     if(current){
       badge.textContent="◎ 今";
-      main.textContent=current.label+"　"+fmtHM(current.start)+"〜"+fmtHM(current.end);
-      sub.textContent="いま狙い目の時間帯・残り約"+Math.max(1,Math.round((current.end-now)/60000))+"分　｜　潮だけで見た目安";
+      main.textContent=current.label+"　"+fmtHM10(current.start)+"〜"+fmtHM10(current.end);
+      sub.textContent="いま狙い目の時間帯・残り約"+Math.max(1,Math.round((current.end-now)/60000))+"分　｜　干潮0・満潮10の潮位基準";
       return;
     }
     const next=windows.find(w=>w.start>now);
     if(next){
       badge.textContent="次";
-      main.textContent=fmtHM(next.start)+"〜"+fmtHM(next.end)+"　"+next.label;
-      sub.textContent=countdownText(next.start-now)+"で狙い目入り　｜　潮だけで見た目安";
+      main.textContent=fmtHM10(next.start)+"〜"+fmtHM10(next.end)+"　"+next.label;
+      sub.textContent=countdownText(next.start-now)+"で狙い目入り　｜　経験則の目安";
       return;
     }
     badge.textContent="--";
@@ -541,9 +642,9 @@ function renderTideChance(day,allExt){
   if(dayWindows.length){
     badge.textContent="この日";
     main.textContent=dayWindows.slice(0,4)
-      .map(w=>fmtHM(w.start)+"〜"+fmtHM(w.end)+"　"+w.label)
+      .map(w=>fmtHM10(w.start)+"〜"+fmtHM10(w.end)+"　"+w.label)
       .join("\n");
-    sub.textContent="その日の候補を時刻順に表示　｜　黄色帯＝上げ3分・下げ7分の狙い目";
+    sub.textContent="その日の候補を時刻順に表示　｜　干潮0・満潮10の潮位基準／経験則の目安";
   }else{
     badge.textContent="--";
     main.textContent="狙い目を計算できません";
@@ -669,7 +770,7 @@ function renderTideChartForDay(times,vals,day,events){
   html+='<path d="'+area+'" fill="url(#tideFill)" stroke="none"/>';
 
   // 上げ3分・下げ7分の狙い目帯を黄色で表示
-  tideChanceWindows(tideExtrema(times,vals)).forEach(w=>{
+  tideChanceWindows(tideExtrema(times,vals),times,vals).forEach(w=>{
     if(w.end<from||w.start>to)return;
     const sx=x(Math.max(from.getTime(),w.start.getTime()));
     const ex=x(Math.min(to.getTime(),w.end.getTime()));
@@ -729,8 +830,8 @@ function renderSelectedTideDay(data){
 
   const allExt=tideExtrema(times,vals);
   const dayEvents=allExt.filter(e=>dayKey(e.time)===dayKey(day));
-  renderCurrentExpectation(day,allExt);
-  renderTideChance(day,allExt);
+  renderCurrentExpectation(day,allExt,times,vals);
+  renderTideChance(day,allExt,times,vals);
   const ref=selectedReferenceTime(day);
   const idx=nearestIndex(times,ref);
   const seg=tideSegmentAt(allExt,ref);
@@ -747,7 +848,8 @@ function renderSelectedTideDay(data){
   const nextBits=[];
   if(nextHigh)nextBits.push("満潮 "+fmtMDHM(nextHigh.time));
   if(nextLow)nextBits.push("干潮 "+fmtMDHM(nextLow.time));
-  $("tideStateSub").textContent="推定潮位 "+(Number.isFinite(vals[idx])?vals[idx].toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
+  const refValue=tideValueAt(times,vals,ref);
+  $("tideStateSub").textContent="推定潮位 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
   $("tideProgressBar").style.width=Math.round(pct)+"%";
 
   const ok=renderTideChartForDay(times,vals,day,dayEvents);
