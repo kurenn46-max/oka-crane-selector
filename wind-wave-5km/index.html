@@ -218,14 +218,14 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div id="tideScore" class="tideScore">
     <div class="tideScoreTop">
       <div>
-        <div class="tideScoreTitle">🎣 現在のエギング期待度</div>
+        <div class="tideScoreTitle">🎣 現在の潮期待度</div>
         <div id="tideScoreValue" class="tideScoreValue">--<small>/100</small></div>
       </div>
       <div id="tideScoreGrade" class="tideScoreGrade">計算中</div>
     </div>
     <div class="tideScoreBar"><div id="tideScoreBar"></div></div>
-    <div id="tideScoreBreakdown" class="tideScoreBreakdown">潮・風・波から計算します</div>
-    <div class="tideScoreNote">※釣果確率ではなく、現在条件の相対的な目安です</div>
+    <div id="tideScoreBreakdown" class="tideScoreBreakdown">潮の進み具合・干満差から計算します</div>
+    <div class="tideScoreNote">※風・波は点数に含めません。釣果確率ではなく潮条件の相対的な目安です</div>
   </div>
 
   <div id="tideChance" class="tideChance">
@@ -403,50 +403,39 @@ function expectationGrade(score){
   if(score>=40)return"△ やや弱い";
   return"× 厳しめ";
 }
-function scoreWind(v){
-  if(!Number.isFinite(v))return{score:13,label:"風データ待ち"};
-  if(v<1)return{score:21,label:"弱風"};
-  if(v<=4)return{score:25,label:"良好"};
-  if(v<=5.5)return{score:20,label:"やや風"};
-  if(v<=7)return{score:12,label:"強め"};
-  if(v<=9)return{score:5,label:"かなり強い"};
-  return{score:0,label:"強風"};
-}
-function scoreWave(v){
-  if(!Number.isFinite(v))return{score:8,label:"波データ待ち"};
-  if(v<.2)return{score:12,label:"かなり穏やか"};
-  if(v<=.8)return{score:15,label:"良好"};
-  if(v<=1.2)return{score:11,label:"やや波"};
-  if(v<=1.5)return{score:6,label:"高め"};
-  return{score:1,label:"高波"};
-}
-function scoreGust(v){
-  if(!Number.isFinite(v))return{score:7,label:"瞬間風データ待ち"};
-  if(v<=5)return{score:10,label:"安定"};
-  if(v<=7)return{score:8,label:"少し強い"};
-  if(v<=9)return{score:5,label:"強め"};
-  if(v<=11)return{score:2,label:"かなり強い"};
-  return{score:0,label:"危険域"};
-}
 function currentTideScore(allExt,now){
   const prev=[...allExt].reverse().find(e=>e.time<=now);
   const next=allExt.find(e=>e.time>now);
-  if(!prev||!next||next.time<=prev.time)return{score:null,label:"潮データ不足",bun:null,phase:"--"};
+  if(!prev||!next||next.time<=prev.time)return{
+    total:null,timingScore:null,rangeScore:null,label:"潮データ不足",range:null,bun:null,phase:"--"
+  };
+
   const rising=prev.type==="low"&&next.type==="high";
   const falling=prev.type==="high"&&next.type==="low";
-  if(!rising&&!falling)return{score:null,label:"潮判定中",bun:null,phase:"--"};
+  if(!rising&&!falling)return{
+    total:null,timingScore:null,rangeScore:null,label:"潮判定中",range:null,bun:null,phase:"--"
+  };
+
   const p=clamp((now-prev.time)/(next.time-prev.time),0,1);
   const target=rising?.30:.70;
 
-  // 潮止まり直後/直前は低評価、上げ3分/下げ7分を50点の頂点にする
+  // タイミング80点：上げ3分 / 下げ7分を頂点、潮止まり両端を0点に近づける
   let rel;
   if(p<=target)rel=target>0?p/target:0;
   else rel=(1-target)>0?(1-p)/(1-target):0;
-  const score=Math.round(5+45*clamp(rel,0,1));
+  const timingScore=Math.round(80*clamp(rel,0,1));
+
+  // 干満差20点：現在の干潮↔満潮区間の潮位差。0.40m以上で満点として相対評価。
+  const range=Math.abs(Number(next.value)-Number(prev.value));
+  const rangeScore=Number.isFinite(range)?Math.round(20*clamp(range/.40,0,1)):0;
+  const total=clamp(timingScore+rangeScore,0,100);
 
   return{
-    score:clamp(score,5,50),
+    total,
+    timingScore,
+    rangeScore,
     label:(rising?"上げ":"下げ")+(p*10).toFixed(1)+"分",
+    range:Number.isFinite(range)?range:null,
     bun:p*10,
     phase:rising?"上げ":"下げ"
   };
@@ -459,50 +448,21 @@ function renderCurrentExpectation(day,allExt){
   }
   root.style.display="block";
 
-  const now=new Date();
-  const tide=currentTideScore(allExt,now);
-  const fresh=currentSea.updatedAt&&(now-currentSea.updatedAt)<=30*60*1000;
-  const haveWind=Number.isFinite(currentSea.wind);
-  const haveWave=Number.isFinite(currentSea.wave);
-
-  // 風または波が未取得/古い時は、推測点で埋めずに算出待ちとする
-  if(!fresh||!haveWind||!haveWave||!Number.isFinite(tide.score)){
+  const tide=currentTideScore(allExt,new Date());
+  if(!Number.isFinite(tide.total)){
     $("tideScoreValue").innerHTML='--<small>/100</small>';
-    $("tideScoreGrade").textContent=!fresh?"更新待ち":"データ待ち";
+    $("tideScoreGrade").textContent="潮データ待ち";
     $("tideScoreBar").style.width="0%";
-    const miss=[];
-    if(!Number.isFinite(tide.score))miss.push("潮");
-    if(!haveWind)miss.push("風");
-    if(!haveWave)miss.push("波");
-    if(!fresh)miss.push("最新データ");
-    $("tideScoreBreakdown").textContent=(miss.length?miss.join("・")+"を取得後に算出":"条件データを取得中");
+    $("tideScoreBreakdown").textContent="潮位データを取得後に算出";
     return;
   }
 
-  const wind=scoreWind(currentSea.wind);
-  const wave=scoreWave(currentSea.wave);
-  const haveGust=Number.isFinite(currentSea.gust);
-  const gust=haveGust?scoreGust(currentSea.gust):{score:0,label:"未提供"};
-
-  // 突風が提供されないモデルでは、90点満点を100点換算して不利にしない
-  const raw=tide.score+wind.score+wave.score+(haveGust?gust.score:0);
-  const max=50+25+15+(haveGust?10:0);
-  let score=Math.round(raw/max*100);
-
-  // 強風・高波では潮が良くても「好条件」に見えないよう上限を設定
-  let cap=100;
-  if(currentSea.wind>=8||currentSea.wave>=1.5||(haveGust&&currentSea.gust>=10))cap=40;
-  if(currentSea.wind>=10||currentSea.wave>=2||(haveGust&&currentSea.gust>=12))cap=25;
-  score=clamp(score,0,cap);
-
-  $("tideScoreValue").innerHTML=score+'<small>/100</small>';
-  $("tideScoreGrade").textContent=expectationGrade(score);
-  $("tideScoreBar").style.width=score+"%";
+  $("tideScoreValue").innerHTML=tide.total+'<small>/100</small>';
+  $("tideScoreGrade").textContent=expectationGrade(tide.total);
+  $("tideScoreBar").style.width=tide.total+"%";
   $("tideScoreBreakdown").textContent=
-    "潮 "+tide.score+"/50（"+tide.label+"）"+
-    " ｜ 風 "+wind.score+"/25（"+currentSea.wind.toFixed(1)+"m/s）"+
-    " ｜ 波 "+wave.score+"/15（"+currentSea.wave.toFixed(1)+"m）"+
-    " ｜ 突風 "+(haveGust?gust.score+"/10（"+currentSea.gust.toFixed(1)+"m/s）":"--（未提供）");
+    "タイミング "+tide.timingScore+"/80（"+tide.label+"）"+
+    " ｜ 干満差 "+tide.rangeScore+"/20（"+(Number.isFinite(tide.range)?tide.range.toFixed(2)+"m":"--")+"）";
 }
 function renderTideChance(day,allExt){
   const title=$("tideChanceTitle"),badge=$("tideChanceBadge"),main=$("tideChanceMain"),sub=$("tideChanceSub");
