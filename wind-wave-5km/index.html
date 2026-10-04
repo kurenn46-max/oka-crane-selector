@@ -431,16 +431,21 @@ function scoreGust(v){
 function currentTideScore(allExt,now){
   const prev=[...allExt].reverse().find(e=>e.time<=now);
   const next=allExt.find(e=>e.time>now);
-  if(!prev||!next||next.time<=prev.time)return{score:25,label:"潮データ不足",bun:null,phase:"--"};
+  if(!prev||!next||next.time<=prev.time)return{score:null,label:"潮データ不足",bun:null,phase:"--"};
   const rising=prev.type==="low"&&next.type==="high";
   const falling=prev.type==="high"&&next.type==="low";
-  if(!rising&&!falling)return{score:25,label:"潮判定中",bun:null,phase:"--"};
+  if(!rising&&!falling)return{score:null,label:"潮判定中",bun:null,phase:"--"};
   const p=clamp((now-prev.time)/(next.time-prev.time),0,1);
   const target=rising?.30:.70;
-  const dist=Math.abs(p-target);
-  const score=Math.round(50*Math.max(.12,1-dist/.55));
+
+  // 潮止まり直後/直前は低評価、上げ3分/下げ7分を50点の頂点にする
+  let rel;
+  if(p<=target)rel=target>0?p/target:0;
+  else rel=(1-target)>0?(1-p)/(1-target):0;
+  const score=Math.round(5+45*clamp(rel,0,1));
+
   return{
-    score:clamp(score,0,50),
+    score:clamp(score,5,50),
     label:(rising?"上げ":"下げ")+(p*10).toFixed(1)+"分",
     bun:p*10,
     phase:rising?"上げ":"下げ"
@@ -453,20 +458,51 @@ function renderCurrentExpectation(day,allExt){
     return;
   }
   root.style.display="block";
+
   const now=new Date();
   const tide=currentTideScore(allExt,now);
+  const fresh=currentSea.updatedAt&&(now-currentSea.updatedAt)<=30*60*1000;
+  const haveWind=Number.isFinite(currentSea.wind);
+  const haveWave=Number.isFinite(currentSea.wave);
+
+  // 風または波が未取得/古い時は、推測点で埋めずに算出待ちとする
+  if(!fresh||!haveWind||!haveWave||!Number.isFinite(tide.score)){
+    $("tideScoreValue").innerHTML='--<small>/100</small>';
+    $("tideScoreGrade").textContent=!fresh?"更新待ち":"データ待ち";
+    $("tideScoreBar").style.width="0%";
+    const miss=[];
+    if(!Number.isFinite(tide.score))miss.push("潮");
+    if(!haveWind)miss.push("風");
+    if(!haveWave)miss.push("波");
+    if(!fresh)miss.push("最新データ");
+    $("tideScoreBreakdown").textContent=(miss.length?miss.join("・")+"を取得後に算出":"条件データを取得中");
+    return;
+  }
+
   const wind=scoreWind(currentSea.wind);
   const wave=scoreWave(currentSea.wave);
-  const gust=scoreGust(currentSea.gust);
-  const score=clamp(tide.score+wind.score+wave.score+gust.score,0,100);
+  const haveGust=Number.isFinite(currentSea.gust);
+  const gust=haveGust?scoreGust(currentSea.gust):{score:0,label:"未提供"};
+
+  // 突風が提供されないモデルでは、90点満点を100点換算して不利にしない
+  const raw=tide.score+wind.score+wave.score+(haveGust?gust.score:0);
+  const max=50+25+15+(haveGust?10:0);
+  let score=Math.round(raw/max*100);
+
+  // 強風・高波では潮が良くても「好条件」に見えないよう上限を設定
+  let cap=100;
+  if(currentSea.wind>=8||currentSea.wave>=1.5||(haveGust&&currentSea.gust>=10))cap=40;
+  if(currentSea.wind>=10||currentSea.wave>=2||(haveGust&&currentSea.gust>=12))cap=25;
+  score=clamp(score,0,cap);
+
   $("tideScoreValue").innerHTML=score+'<small>/100</small>';
   $("tideScoreGrade").textContent=expectationGrade(score);
   $("tideScoreBar").style.width=score+"%";
   $("tideScoreBreakdown").textContent=
     "潮 "+tide.score+"/50（"+tide.label+"）"+
-    " ｜ 風 "+wind.score+"/25（"+(Number.isFinite(currentSea.wind)?currentSea.wind.toFixed(1)+"m/s":"--")+"）"+
-    " ｜ 波 "+wave.score+"/15（"+(Number.isFinite(currentSea.wave)?currentSea.wave.toFixed(1)+"m":"--")+"）"+
-    " ｜ 突風 "+gust.score+"/10";
+    " ｜ 風 "+wind.score+"/25（"+currentSea.wind.toFixed(1)+"m/s）"+
+    " ｜ 波 "+wave.score+"/15（"+currentSea.wave.toFixed(1)+"m）"+
+    " ｜ 突風 "+(haveGust?gust.score+"/10（"+currentSea.gust.toFixed(1)+"m/s）":"--（未提供）");
 }
 function renderTideChance(day,allExt){
   const title=$("tideChanceTitle"),badge=$("tideChanceBadge"),main=$("tideChanceMain"),sub=$("tideChanceSub");
@@ -593,9 +629,9 @@ function renderTideWeek(){
 }
 function selectedReferenceTime(day){
   const now=new Date();
+  if(sameDay(now,day))return now;
   const forecast=selectedForecastTime?new Date(selectedForecastTime):null;
   if(forecast&&sameDay(forecast,day))return forecast;
-  if(sameDay(now,day))return now;
   const d=new Date(day);d.setHours(12,0,0,0);return d;
 }
 function renderTideChartForDay(times,vals,day,events){
