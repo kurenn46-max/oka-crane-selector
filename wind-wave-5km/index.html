@@ -183,9 +183,9 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 <div class="cards">
 <div class="card"><div class="label">中心の風</div><div class="value" id="wind">-- m/s</div><div class="label" id="windDir">--</div></div>
 <div class="card"><div class="label">最大瞬間</div><div class="value" id="gust">-- m/s</div><div class="label">10m高度</div></div>
-<div class="card"><div class="label">波</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
+<div class="card"><div class="label">沖波目安</div><div class="value" id="wave">-- m</div><div class="label" id="period">周期 -- s</div></div>
 </div>
-<div class="note">青矢印＝風が流れていく方向。5km圏内をズームに応じ9〜21地点取得。青円は半径5km。</div>
+<div class="note">青矢印＝モデル風の流れる方向。5km圏内を9〜21地点取得。風裏・堤防・港内は地形で差が出ます。波は広域モデルの沖波目安。</div>
 </section>
 
 <div id="forecastBackdrop"></div>
@@ -286,7 +286,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div class="tideNote">
     日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
     上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
-    海水温は海面付近のモデル推定値で、港内や足元の実測水温とは差が出ることがあります。
+    海水温は約8km格子の広域推定、潮位も約8km格子の海洋モデルです。湾奥・港内・防波堤周辺では実測と差が出やすいため、釣り判断の参考値として使ってください。
   </div>
 </section>
 
@@ -431,14 +431,34 @@ function nearestIndex(times,target){
 function tideExtrema(times,vals){
   const raw=[];
   for(let i=1;i<vals.length-1;i++){
-    const a=vals[i-1],b=vals[i],c=vals[i+1];
+    const a=Number(vals[i-1]),b=Number(vals[i]),c=Number(vals[i+1]);
     if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c))continue;
-    if(b>=a&&b>c)raw.push({i,type:"high",time:new Date(times[i]),value:b});
-    else if(b<=a&&b<c)raw.push({i,type:"low",time:new Date(times[i]),value:b});
+
+    let type=null;
+    if(b>=a&&b>c)type="high";
+    else if(b<=a&&b<c)type="low";
+    if(!type)continue;
+
+    // 1時間格子の3点を放物線補間し、極値の時刻をサブアワー推定。
+    // 元データ以上の精度を装わないため、表示側は10分単位に丸める。
+    const denom=a-2*b+c;
+    let off=0;
+    if(Math.abs(denom)>1e-9)off=.5*(a-c)/denom;
+    off=clamp(off,-.5,.5);
+
+    const t0=new Date(times[i-1]).getTime();
+    const t1=new Date(times[i]).getTime();
+    const t2=new Date(times[i+1]).getTime();
+    const step=(t2-t0)/2;
+    const time=new Date(t1+off*step);
+
+    const A=(a+c-2*b)/2;
+    const B=(c-a)/2;
+    const value=A*off*off+B*off+b;
+    raw.push({i,type,time,value:Number.isFinite(value)?value:b});
   }
 
-  // 海洋モデルの小さな揺れや平坦部で同じ種類の極値が連続すると、
-  // 「現在の潮区間」を判定できなくなる。連続したhigh/lowは、
+  // 小さな揺れや平坦部で同じ種類の極値が連続した場合は、
   // より極端な方だけ残して high→low→high… に正規化する。
   const out=[];
   raw.forEach(e=>{
@@ -678,7 +698,7 @@ async function fetchTide(){
   u.searchParams.set("latitude",center.lat.toFixed(5));
   u.searchParams.set("longitude",center.lng.toFixed(5));
   u.searchParams.set("hourly","sea_level_height_msl,sea_surface_temperature");
-  u.searchParams.set("past_hours","24");
+  u.searchParams.set("past_hours","30");
   u.searchParams.set("forecast_hours","192");
   u.searchParams.set("cell_selection","sea");
   u.searchParams.set("timezone","auto");
@@ -802,7 +822,7 @@ function renderTideChartForDay(times,vals,day,events){
     const col=e.type==="high"?"#ff6f68":"#4db9ff";
     html+='<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="'+col+'" stroke="#fff" stroke-width="2"/>'+
       '<text x="'+Math.max(4,Math.min(W-70,cx-28))+'" y="'+(e.type==="high"?Math.max(13,cy-12):Math.min(H-B-3,cy+20))+'" fill="#f2f7fa" font-size="11" font-weight="700">'+
-      (e.type==="high"?"満潮 ":"干潮 ")+fmtHM(e.time)+'</text>';
+      (e.type==="high"?"満潮 ":"干潮 ")+fmtHM10(e.time)+'</text>';
   });
 
   // 今日のグラフだけ、現在時刻を黄色の縦線＋ラベルで強調する
@@ -870,7 +890,10 @@ function renderSeaTemperature(data,day,ref){
   const when=sameDay(day,new Date())
     ?"現在 "+fmtHM(ref)
     :(day.getMonth()+1)+"/"+day.getDate()+" "+fmtHM(ref);
-  meta.textContent=when+" の推定海面水温｜約8km格子・元データ6時間ごと";
+  const model={lat:Number(data.latitude),lng:Number(data.longitude)};
+  const dist=Number.isFinite(model.lat)?hav(center,model):NaN;
+  const distText=Number.isFinite(dist)?"・海洋格子まで約"+dist.toFixed(1)+"km":"";
+  meta.textContent=when+" の広域推定｜約8km格子・元データ6時間ごと"+distText+"｜港内/岸際は差に注意";
 }
 function renderSelectedTideDay(data){
   const h=data.hourly||{};
@@ -897,17 +920,21 @@ function renderSelectedTideDay(data){
   const slope=(vals[Math.min(vals.length-1,idx+1)]??vals[idx])-(vals[Math.max(0,idx-1)]??vals[idx]);
   const rising=seg?seg.rising:slope>=0;
   let pct=50;
-  if(seg){
-    pct=clamp((ref.getTime()-seg.prev.time.getTime())/(seg.next.time.getTime()-seg.prev.time.getTime())*100,0,100);
+  const refValue=tideValueAt(times,vals,ref);
+  if(seg&&Number.isFinite(refValue)){
+    const low=seg.rising?Number(seg.prev.value):Number(seg.next.value);
+    const high=seg.rising?Number(seg.next.value):Number(seg.prev.value);
+    if(Number.isFinite(low)&&Number.isFinite(high)&&high>low){
+      pct=clamp((refValue-low)/(high-low)*100,0,100);
+    }
   }
   $("tideStateLabel").textContent=sameDay(day,new Date())?"現在の潮 "+fmtHM(new Date()):"選択日の12時付近";
   $("tideState").textContent=rising?"↗ 上げ潮":"↘ 下げ潮";
-  const nextHigh=allExt.find(e=>e.i>idx&&e.type==="high");
-  const nextLow=allExt.find(e=>e.i>idx&&e.type==="low");
+  const nextHigh=allExt.find(e=>e.time>ref&&e.type==="high");
+  const nextLow=allExt.find(e=>e.time>ref&&e.type==="low");
   const nextBits=[];
-  if(nextHigh)nextBits.push("満潮 "+fmtMDHM(nextHigh.time));
-  if(nextLow)nextBits.push("干潮 "+fmtMDHM(nextLow.time));
-  const refValue=tideValueAt(times,vals,ref);
+  if(nextHigh)nextBits.push("満潮 "+(nextHigh.time.getMonth()+1)+"/"+nextHigh.time.getDate()+" "+fmtHM10(nextHigh.time));
+  if(nextLow)nextBits.push("干潮 "+(nextLow.time.getMonth()+1)+"/"+nextLow.time.getDate()+" "+fmtHM10(nextLow.time));
   $("tideStateSub").textContent="推定潮位 "+(Number.isFinite(refValue)?refValue.toFixed(2)+"m":"--")+" / "+(nextBits.join("・")||"次の極値なし");
   $("tideProgressBar").style.width=Math.round(pct)+"%";
 
@@ -923,7 +950,7 @@ function renderSelectedTideDay(data){
     const el=document.createElement("div");
     el.className="tideEvent";
     el.innerHTML='<div class="kind">'+(e.type==="high"?"🔴 満潮":"🔵 干潮")+'</div>'+
-      '<div class="time">'+fmtHM(e.time)+'</div>'+
+      '<div class="time">'+fmtHM10(e.time)+'</div>'+
       '<div class="height">推定 '+e.value.toFixed(2)+' m</div>';
     frag.appendChild(el);
   });
