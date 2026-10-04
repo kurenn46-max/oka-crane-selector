@@ -225,6 +225,7 @@ let drag=null, loading=false, refreshTimer=null;
 let forecastRows=[], forecastWave=null, forecastRange=24, forecastIndex=null, forecastLoading=false;
 let selectedForecastTime=null;
 let tideLoading=false;
+let tideClockTimer=null;
 let tideCache=new Map();
 let tideSelectedDateKey=null;
 let tideData=null;
@@ -243,11 +244,17 @@ function openTidePanel(){
   $("tideBackdrop").classList.add("open");
   $("tidePanel").classList.add("open");
   $("tideBtn").classList.add("primary");
+  clearInterval(tideClockTimer);
+  tideClockTimer=setInterval(()=>{
+    if(tideData&&tideSelectedDateKey===dayKey(new Date()))renderSelectedTideDay(tideData);
+  },60000);
 }
 function closeTidePanel(){
   $("tideBackdrop").classList.remove("open");
   $("tidePanel").classList.remove("open");
   $("tideBtn").classList.remove("primary");
+  clearInterval(tideClockTimer);
+  tideClockTimer=null;
 }
 function focusDate(){
   return selectedForecastTime?new Date(selectedForecastTime):new Date();
@@ -433,6 +440,31 @@ function renderTideChartForDay(times,vals,day,events){
       '<text x="'+Math.max(4,Math.min(W-70,cx-28))+'" y="'+(e.type==="high"?Math.max(13,cy-12):Math.min(H-B-3,cy+20))+'" fill="#f2f7fa" font-size="11" font-weight="700">'+
       (e.type==="high"?"満潮 ":"干潮 ")+fmtHM(e.time)+'</text>';
   });
+
+  // 今日のグラフだけ、現在時刻を黄色の縦線＋ラベルで強調する
+  const now=new Date();
+  if(sameDay(now,day)&&now>=from&&now<=to){
+    const nowMs=now.getTime();
+    let nowVal=null;
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i],b=pts[i+1];
+      if(nowMs>=a.ms&&nowMs<=b.ms){
+        const ratio=(nowMs-a.ms)/Math.max(1,b.ms-a.ms);
+        nowVal=a.v+(b.v-a.v)*ratio;
+        break;
+      }
+    }
+    const nx=x(nowMs);
+    const labelW=108;
+    const labelX=Math.max(4,Math.min(W-labelW-4,nx-labelW/2));
+    html+='<line x1="'+nx+'" y1="28" x2="'+nx+'" y2="'+(H-B)+'" stroke="#ffd54a" stroke-width="3" stroke-dasharray="7 5"/>'+
+      '<rect x="'+labelX+'" y="2" width="'+labelW+'" height="24" rx="12" fill="#ffd54a" stroke="#fff" stroke-width="1"/>'+
+      '<text x="'+(labelX+labelW/2)+'" y="18" text-anchor="middle" fill="#06131c" font-size="12" font-weight="900">現在 '+fmtHM(now)+'</text>';
+    if(Number.isFinite(nowVal)){
+      const ny=y(nowVal);
+      html+='<circle cx="'+nx+'" cy="'+ny+'" r="7" fill="#ffd54a" stroke="#fff" stroke-width="3"/>';
+    }
+  }
   svg.innerHTML=html;
   return true;
 }
@@ -462,7 +494,7 @@ function renderSelectedTideDay(data){
   if(prev&&next&&next.time.getTime()>prev.time.getTime()){
     pct=clamp((ref.getTime()-prev.time.getTime())/(next.time.getTime()-prev.time.getTime())*100,0,100);
   }
-  $("tideStateLabel").textContent=sameDay(day,new Date())?"現在の潮":"選択日の12時付近";
+  $("tideStateLabel").textContent=sameDay(day,new Date())?"現在の潮 "+fmtHM(new Date()):"選択日の12時付近";
   $("tideState").textContent=rising?"↗ 上げ潮":"↘ 下げ潮";
   const nextHigh=allExt.find(e=>e.i>idx&&e.type==="high");
   const nextLow=allExt.find(e=>e.i>idx&&e.type==="low");
