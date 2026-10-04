@@ -311,6 +311,7 @@ let tideCache=new Map();
 let jmaTideCache=new Map();
 let tideSelectedDateKey=null;
 let tideData=null;
+let tideRenderRaf=null;
 let tideChanceViewIndex=0;
 let tideChanceViewDay=null;
 const JMA_TIDE_STATIONS=[
@@ -335,7 +336,7 @@ function openTidePanel(){
   $("tideBtn").classList.add("primary");
   clearInterval(tideClockTimer);
   tideClockTimer=setInterval(()=>{
-    if(tideData&&tideSelectedDateKey===dayKey(new Date()))renderSelectedTideDay(tideData);
+    if(tideData&&tideSelectedDateKey===dayKey(new Date()))scheduleTideDayRender();
   },60000);
 }
 function closeTidePanel(){
@@ -344,6 +345,7 @@ function closeTidePanel(){
   $("tideBtn").classList.remove("primary");
   clearInterval(tideClockTimer);
   tideClockTimer=null;
+  if(tideRenderRaf){cancelAnimationFrame(tideRenderRaf);tideRenderRaf=null;}
 }
 function focusDate(){
   return selectedForecastTime?new Date(selectedForecastTime):new Date();
@@ -713,7 +715,7 @@ function advanceTideChance(){
   const action=badge.dataset.action||"";
   if(action==="nextchance"){
     tideChanceViewIndex++;
-    if(tideData)renderSelectedTideDay(tideData);
+    scheduleTideDayRender();
     return;
   }
   if(action==="nextday"){
@@ -873,12 +875,41 @@ function selectDefaultTideDay(){
   const chosen=diff>=0&&diff<7?dayStart(f):today;
   tideSelectedDateKey=dayKey(chosen);
 }
+function scheduleTideDayRender(){
+  if(!tideData)return;
+  if(tideRenderRaf)cancelAnimationFrame(tideRenderRaf);
+  tideRenderRaf=requestAnimationFrame(()=>{
+    tideRenderRaf=null;
+    renderSelectedTideDay(tideData);
+  });
+}
+function updateTideWeekSelection(scrollIntoView=true){
+  const root=$("tideWeek");
+  root.querySelectorAll(".tideDay").forEach(btn=>{
+    const active=btn.dataset.date===tideSelectedDateKey;
+    btn.classList.toggle("active",active);
+    let badge=btn.querySelector(".tideSelectedBadge");
+    if(active&&!badge){
+      badge=document.createElement("div");
+      badge.className="tideSelectedBadge";
+      badge.textContent="選択中";
+      btn.appendChild(badge);
+    }else if(!active&&badge){
+      badge.remove();
+    }
+  });
+  if(scrollIntoView){
+    const active=root.querySelector(".tideDay.active");
+    if(active)active.scrollIntoView({behavior:"auto",block:"nearest",inline:"nearest"});
+  }
+}
 function setTideSelectedDay(key){
+  if(key===tideSelectedDateKey)return;
   tideSelectedDateKey=key;
   tideChanceViewIndex=0;
   tideChanceViewDay=key;
-  renderTideWeek();
-  if(tideData)renderSelectedTideDay(tideData);
+  updateTideWeekSelection(true);
+  scheduleTideDayRender();
 }
 function shiftTideDay(delta){
   const today=dayStart(new Date());
@@ -918,7 +949,7 @@ function renderTideWeek(){
   }
   root.replaceChildren(frag);
   const active=root.querySelector(".tideDay.active");
-  if(active)active.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});
+  if(active)active.scrollIntoView({behavior:"auto",block:"nearest",inline:"nearest"});
 }
 function selectedReferenceTime(day){
   const now=new Date();
@@ -1066,9 +1097,13 @@ function renderSelectedTideDay(data){
   $("moonAge").textContent="月齢 "+m.age.toFixed(1);
   $("moonHint").textContent=tideName+"（月齢からの目安）";
 
-  const allExt=(data._source==="jma"&&data._jmaEvents&&data._jmaEvents.length)
-    ?data._jmaEvents
-    :tideExtrema(times,vals);
+  let allExt=data._allExtCache;
+  if(!allExt){
+    allExt=(data._source==="jma"&&data._jmaEvents&&data._jmaEvents.length)
+      ?data._jmaEvents
+      :tideExtrema(times,vals);
+    data._allExtCache=allExt;
+  }
   const dayEvents=allExt.filter(e=>dayKey(e.time)===dayKey(day));
   renderCurrentExpectation(day,allExt,times,vals);
   renderTideChance(day,allExt,times,vals);
@@ -1163,7 +1198,7 @@ async function loadTidePanel(){
       $("tidePlace").textContent=placeName+"　"+(Number.isFinite(dist)?"最寄海域 "+dist.toFixed(0)+"km":"1週間");
     }
 
-    renderTideWeek();
+    updateTideWeekSelection(false);
     renderSelectedTideDay(tideData);
   }catch(e){
     $("tideLoading").style.display="block";
