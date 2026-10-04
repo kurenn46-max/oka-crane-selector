@@ -106,6 +106,12 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .moonMeta{font-size:9px;color:#a9bdca;margin-top:4px}
 .tideState{font-size:20px;font-weight:900;margin-top:2px}.tideSub{font-size:9px;color:#a9bdca;margin-top:4px;line-height:1.35}
 .tideProgress{height:6px;background:#091a25;border-radius:999px;overflow:hidden;margin-top:7px}.tideProgress>div{height:100%;background:#58bcff;width:0%}
+.seaTempCard{margin-top:8px;background:#102a3b;border:1px solid #3d6677;border-radius:12px;padding:9px 10px}
+.seaTempTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.seaTempLabel{font-size:11px;color:#d7e8f2;font-weight:900}
+.seaTempValue{font-size:24px;font-weight:950;line-height:1.05}
+.seaTempTrend{font-size:12px;font-weight:900;white-space:nowrap}
+.seaTempMeta{font-size:9px;color:#a9bdca;line-height:1.4;margin-top:5px}
 .tideScore{margin-top:8px;background:#102a3b;border:1px solid #3e6d82;border-radius:12px;padding:10px}
 .tideScoreTop{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
 .tideScoreTitle{font-size:11px;color:#d7e8f2;font-weight:900}
@@ -238,6 +244,17 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     </div>
   </div>
 
+  <div id="seaTempCard" class="seaTempCard">
+    <div class="seaTempTop">
+      <div>
+        <div class="seaTempLabel">🌡 海水温（海面）</div>
+        <div id="seaTempValue" class="seaTempValue">--℃</div>
+      </div>
+      <div id="seaTempTrend" class="seaTempTrend">取得中</div>
+    </div>
+    <div id="seaTempMeta" class="seaTempMeta">Open-Meteo海洋モデルの海面水温を表示</div>
+  </div>
+
   <div id="tideScore" class="tideScore">
     <div class="tideScoreTop">
       <div>
@@ -269,6 +286,7 @@ button.primary{background:#58bcff;color:#00131f;border:0}
   <div class="tideNote">
     日付カードのタップ、または潮見表を左右にスワイプすると日付を切り替えられます。潮位はOpen-Meteo海洋モデルの推定値です。
     上げ3分・下げ7分は経験則の目安で、釣果を保証するものではありません。潮名も月齢からの目安です。
+    海水温は海面付近のモデル推定値で、港内や足元の実測水温とは差が出ることがあります。
   </div>
 </section>
 
@@ -659,7 +677,7 @@ async function fetchTide(){
   const u=new URL("https://marine-api.open-meteo.com/v1/marine");
   u.searchParams.set("latitude",center.lat.toFixed(5));
   u.searchParams.set("longitude",center.lng.toFixed(5));
-  u.searchParams.set("hourly","sea_level_height_msl");
+  u.searchParams.set("hourly","sea_level_height_msl,sea_surface_temperature");
   u.searchParams.set("past_hours","24");
   u.searchParams.set("forecast_hours","192");
   u.searchParams.set("cell_selection","sea");
@@ -814,6 +832,46 @@ function renderTideChartForDay(times,vals,day,events){
   svg.innerHTML=html;
   return true;
 }
+function renderSeaTemperature(data,day,ref){
+  const h=data.hourly||{};
+  const times=h.time||[];
+  const temps=h.sea_surface_temperature||[];
+  const value=$("seaTempValue"),trend=$("seaTempTrend"),meta=$("seaTempMeta");
+
+  if(!times.length||!temps.length){
+    value.textContent="--℃";
+    trend.textContent="取得不可";
+    meta.textContent="この地点では海面水温データを取得できません";
+    return;
+  }
+
+  const cur=tideValueAt(times,temps,ref);
+  const prevAt=new Date(ref.getTime()-24*3600000);
+  const prev=tideValueAt(times,temps,prevAt);
+
+  if(!Number.isFinite(cur)){
+    value.textContent="--℃";
+    trend.textContent="データ外";
+    meta.textContent="選択時刻の海面水温データがありません";
+    return;
+  }
+
+  value.textContent=cur.toFixed(1)+"℃";
+
+  if(Number.isFinite(prev)){
+    const diff=cur-prev;
+    const arrow=diff>.15?"↗":diff<-.15?"↘":"→";
+    const sign=diff>0?"+":"";
+    trend.textContent=arrow+" 24h "+sign+diff.toFixed(1)+"℃";
+  }else{
+    trend.textContent="24h比 --";
+  }
+
+  const when=sameDay(day,new Date())
+    ?"現在 "+fmtHM(ref)
+    :(day.getMonth()+1)+"/"+day.getDate()+" "+fmtHM(ref);
+  meta.textContent=when+" の推定海面水温｜約8km格子・元データ6時間ごと";
+}
 function renderSelectedTideDay(data){
   const h=data.hourly||{};
   const times=h.time||[],vals=h.sea_level_height_msl||[];
@@ -833,6 +891,7 @@ function renderSelectedTideDay(data){
   renderCurrentExpectation(day,allExt,times,vals);
   renderTideChance(day,allExt,times,vals);
   const ref=selectedReferenceTime(day);
+  renderSeaTemperature(data,day,ref);
   const idx=nearestIndex(times,ref);
   const seg=tideSegmentAt(allExt,ref);
   const slope=(vals[Math.min(vals.length-1,idx+1)]??vals[idx])-(vals[Math.max(0,idx-1)]??vals[idx]);
@@ -884,7 +943,7 @@ async function loadTidePanel(){
   renderTideWeek();
   $("tidePlace").textContent=placeName+"　1週間";
   $("tideLoading").style.display="block";
-  $("tideLoading").textContent="1週間の潮データ取得中…";
+  $("tideLoading").textContent="潮・海水温データ取得中…";
   $("tideChart").style.display="none";
   $("tideEvents").replaceChildren();
   openTidePanel();
@@ -903,6 +962,9 @@ async function loadTidePanel(){
     $("tideChart").style.display="none";
     $("tideState").textContent="取得不可";
     $("tideStateSub").textContent="少し時間を空けて再度開いてください";
+    $("seaTempValue").textContent="--℃";
+    $("seaTempTrend").textContent="取得不可";
+    $("seaTempMeta").textContent="海水温データを取得できません";
   }finally{
     tideLoading=false;
   }
