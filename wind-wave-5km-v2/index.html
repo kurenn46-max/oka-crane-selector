@@ -1588,14 +1588,21 @@ async function getWaveAtTime(iso){
   return r.json();
 }
 function waveForecastAt(i){
-  if(!forecastWave||!forecastWave.hourly)return null;
+  if(!forecastWave||!forecastWave.hourly||!forecastRows.length)return null;
+  const wh=forecastWave.hourly;
+  const windTime=forecastRows[0].hourly&&forecastRows[0].hourly.time&&forecastRows[0].hourly.time[i];
+  const waveTimes=wh.time||[];
+  let wi=windTime?waveTimes.indexOf(windTime):-1;
+  if(wi<0)wi=i;
+
   const model={lat:Number(forecastWave.latitude),lng:Number(forecastWave.longitude)};
   const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity;
   if(seaDistance>20)return null;
   return{
-    h:forecastWave.hourly.wave_height&&forecastWave.hourly.wave_height[i],
-    period:forecastWave.hourly.wave_period&&forecastWave.hourly.wave_period[i],
-    seaDistance
+    h:wh.wave_height&&wh.wave_height[wi],
+    period:wh.wave_period&&wh.wave_period[wi],
+    seaDistance,
+    matchedTime:waveTimes[wi]||null
   };
 }
 function applyForecastHour(i,scrollCard){
