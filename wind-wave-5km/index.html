@@ -83,6 +83,16 @@ button.primary{background:#58bcff;color:#00131f;border:0}
 .moonMeta{font-size:9px;color:#a9bdca;margin-top:4px}
 .tideState{font-size:20px;font-weight:900;margin-top:2px}.tideSub{font-size:9px;color:#a9bdca;margin-top:4px;line-height:1.35}
 .tideProgress{height:6px;background:#091a25;border-radius:999px;overflow:hidden;margin-top:7px}.tideProgress>div{height:100%;background:#58bcff;width:0%}
+.tideScore{margin-top:8px;background:#102a3b;border:1px solid #3e6d82;border-radius:12px;padding:10px}
+.tideScoreTop{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.tideScoreTitle{font-size:11px;color:#d7e8f2;font-weight:900}
+.tideScoreValue{font-size:31px;font-weight:950;line-height:1}
+.tideScoreValue small{font-size:13px;color:#a9bdca;font-weight:800}
+.tideScoreGrade{font-size:15px;font-weight:950;white-space:nowrap}
+.tideScoreBar{height:8px;background:#091a25;border-radius:999px;overflow:hidden;margin-top:8px}
+.tideScoreBar>div{height:100%;width:0%;background:linear-gradient(90deg,#4db9ff,#ffd54a)}
+.tideScoreBreakdown{font-size:10px;color:#c3d3dc;line-height:1.45;margin-top:6px}
+.tideScoreNote{font-size:8px;color:#8fa8b7;margin-top:4px}
 .tideChance{margin-top:8px;background:#102a3b;border:1px solid #6e6636;border-radius:12px;padding:9px 10px;box-shadow:inset 0 0 0 1px rgba(255,213,74,.07)}
 .tideChanceHead{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#d7e8f2;font-weight:900}
 .tideChanceBadge{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:3px 8px;border-radius:999px;background:#ffd54a;color:#06131c;font-size:10px;font-weight:900}
@@ -205,6 +215,19 @@ button.primary{background:#58bcff;color:#00131f;border:0}
     </div>
   </div>
 
+  <div id="tideScore" class="tideScore">
+    <div class="tideScoreTop">
+      <div>
+        <div class="tideScoreTitle">🎣 現在のエギング期待度</div>
+        <div id="tideScoreValue" class="tideScoreValue">--<small>/100</small></div>
+      </div>
+      <div id="tideScoreGrade" class="tideScoreGrade">計算中</div>
+    </div>
+    <div class="tideScoreBar"><div id="tideScoreBar"></div></div>
+    <div id="tideScoreBreakdown" class="tideScoreBreakdown">潮・風・波から計算します</div>
+    <div class="tideScoreNote">※釣果確率ではなく、現在条件の相対的な目安です</div>
+  </div>
+
   <div id="tideChance" class="tideChance">
     <div class="tideChanceHead">
       <span id="tideChanceTitle">🎯 今からの狙い目</span>
@@ -235,6 +258,7 @@ const START={lat:35.0116,lng:135.7681};
 const TILE=256, EARTH=6378137;
 let center={...START}, placeName="京都市付近", zoom=13;
 let windSamples=[];
+let currentSea={wind:null,gust:null,wave:null,period:null,updatedAt:null};
 let drag=null, loading=false, refreshTimer=null;
 let forecastRows=[], forecastWave=null, forecastRange=24, forecastIndex=null, forecastLoading=false;
 let selectedForecastTime=null;
@@ -371,6 +395,78 @@ function countdownText(ms){
   if(min<60)return"あと"+min+"分";
   const h=Math.floor(min/60),m=min%60;
   return"あと"+h+"時間"+(m?m+"分":"");
+}
+function expectationGrade(score){
+  if(score>=85)return"🔥 かなり期待";
+  if(score>=70)return"◎ 期待";
+  if(score>=55)return"○ まずまず";
+  if(score>=40)return"△ やや弱い";
+  return"× 厳しめ";
+}
+function scoreWind(v){
+  if(!Number.isFinite(v))return{score:13,label:"風データ待ち"};
+  if(v<1)return{score:21,label:"弱風"};
+  if(v<=4)return{score:25,label:"良好"};
+  if(v<=5.5)return{score:20,label:"やや風"};
+  if(v<=7)return{score:12,label:"強め"};
+  if(v<=9)return{score:5,label:"かなり強い"};
+  return{score:0,label:"強風"};
+}
+function scoreWave(v){
+  if(!Number.isFinite(v))return{score:8,label:"波データ待ち"};
+  if(v<.2)return{score:12,label:"かなり穏やか"};
+  if(v<=.8)return{score:15,label:"良好"};
+  if(v<=1.2)return{score:11,label:"やや波"};
+  if(v<=1.5)return{score:6,label:"高め"};
+  return{score:1,label:"高波"};
+}
+function scoreGust(v){
+  if(!Number.isFinite(v))return{score:7,label:"瞬間風データ待ち"};
+  if(v<=5)return{score:10,label:"安定"};
+  if(v<=7)return{score:8,label:"少し強い"};
+  if(v<=9)return{score:5,label:"強め"};
+  if(v<=11)return{score:2,label:"かなり強い"};
+  return{score:0,label:"危険域"};
+}
+function currentTideScore(allExt,now){
+  const prev=[...allExt].reverse().find(e=>e.time<=now);
+  const next=allExt.find(e=>e.time>now);
+  if(!prev||!next||next.time<=prev.time)return{score:25,label:"潮データ不足",bun:null,phase:"--"};
+  const rising=prev.type==="low"&&next.type==="high";
+  const falling=prev.type==="high"&&next.type==="low";
+  if(!rising&&!falling)return{score:25,label:"潮判定中",bun:null,phase:"--"};
+  const p=clamp((now-prev.time)/(next.time-prev.time),0,1);
+  const target=rising?.30:.70;
+  const dist=Math.abs(p-target);
+  const score=Math.round(50*Math.max(.12,1-dist/.55));
+  return{
+    score:clamp(score,0,50),
+    label:(rising?"上げ":"下げ")+(p*10).toFixed(1)+"分",
+    bun:p*10,
+    phase:rising?"上げ":"下げ"
+  };
+}
+function renderCurrentExpectation(day,allExt){
+  const root=$("tideScore");
+  if(!sameDay(day,new Date())){
+    root.style.display="none";
+    return;
+  }
+  root.style.display="block";
+  const now=new Date();
+  const tide=currentTideScore(allExt,now);
+  const wind=scoreWind(currentSea.wind);
+  const wave=scoreWave(currentSea.wave);
+  const gust=scoreGust(currentSea.gust);
+  const score=clamp(tide.score+wind.score+wave.score+gust.score,0,100);
+  $("tideScoreValue").innerHTML=score+'<small>/100</small>';
+  $("tideScoreGrade").textContent=expectationGrade(score);
+  $("tideScoreBar").style.width=score+"%";
+  $("tideScoreBreakdown").textContent=
+    "潮 "+tide.score+"/50（"+tide.label+"）"+
+    " ｜ 風 "+wind.score+"/25（"+(Number.isFinite(currentSea.wind)?currentSea.wind.toFixed(1)+"m/s":"--")+"）"+
+    " ｜ 波 "+wave.score+"/15（"+(Number.isFinite(currentSea.wave)?currentSea.wave.toFixed(1)+"m":"--")+"）"+
+    " ｜ 突風 "+gust.score+"/10";
 }
 function renderTideChance(day,allExt){
   const title=$("tideChanceTitle"),badge=$("tideChanceBadge"),main=$("tideChanceMain"),sub=$("tideChanceSub");
@@ -596,6 +692,7 @@ function renderSelectedTideDay(data){
 
   const allExt=tideExtrema(times,vals);
   const dayEvents=allExt.filter(e=>dayKey(e.time)===dayKey(day));
+  renderCurrentExpectation(day,allExt);
   renderTideChance(day,allExt);
   const ref=selectedReferenceTime(day);
   const idx=nearestIndex(times,ref);
@@ -1212,6 +1309,9 @@ async function refreshData(){
     renderWindMarkers();
 
     const c=windSamples[0]||{};
+    currentSea.wind=Number.isFinite(c.speed)?c.speed:null;
+    currentSea.gust=Number.isFinite(c.gust)?c.gust:null;
+    currentSea.updatedAt=new Date();
     $("wind").textContent=Number.isFinite(c.speed)?c.speed.toFixed(1)+" m/s":"-- m/s";
     $("windDir").textContent=Number.isFinite(c.dir)?compass(c.dir)+"から":"--";
     $("gust").textContent=modelInfo().gust?(Number.isFinite(c.gust)?c.gust.toFixed(1)+" m/s":"-- m/s"):"提供なし";
@@ -1222,12 +1322,17 @@ async function refreshData(){
       const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity;
       const near=seaDistance<=20;
       const cur=w.current||{};
+      currentSea.wave=near&&Number.isFinite(cur.wave_height)?cur.wave_height:null;
+      currentSea.period=near&&Number.isFinite(cur.wave_period)?cur.wave_period:null;
       $("wave").textContent=near&&Number.isFinite(cur.wave_height)?cur.wave_height.toFixed(1)+" m":"海域外";
       $("period").textContent=near&&Number.isFinite(cur.wave_period)?("周期 "+cur.wave_period.toFixed(1)+" s"+(seaDistance>5?" / 最寄海域 "+seaDistance.toFixed(0)+"km":"")):"周期 -- s";
     }catch(_){
+      currentSea.wave=null;
+      currentSea.period=null;
       $("wave").textContent="取得不可";
       $("period").textContent="周期 -- s";
     }
+    if(tideData&&tideSelectedDateKey===dayKey(new Date()))renderSelectedTideDay(tideData);
     setStatus(compareMode?("✅ "+modelInfo().label+"表示＋3モデル差分"):("✅ "+modelInfo().label+"：半径5km・"+ps.length+"地点の風を表示"));
   }catch(e){
     showError("データ取得で停止："+(e.message||e));
@@ -1250,6 +1355,7 @@ function moveTo(c,name){
   closeForecastPanel();
   closeTidePanel();
   tideData=null;
+  currentSea={wind:null,gust:null,wave:null,period:null,updatedAt:null};
   center={lat:Number(c.lat),lng:Number(c.lng)};
   placeName=name||("地図中心 "+center.lat.toFixed(5)+","+center.lng.toFixed(5));
   renderMap();
