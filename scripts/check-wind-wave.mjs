@@ -7,7 +7,8 @@ const files=[
   ["v3.2","wind-wave-1km-v32/index.html"],
   ["v3.3","wind-wave-local-v33/index.html"],
   ["v3.4","wind-wave-surface-v34/index.html"],
-  ["v3.5","wind-wave-surface-forecast-v35/index.html"]
+  ["v3.5","wind-wave-surface-forecast-v35/index.html"],
+  ["v3.6","wind-wave-layer-forecast-v36/index.html"]
 ];
 
 let failed=false;
@@ -260,6 +261,29 @@ const exampleHeightFactor=.7;
 const example2m=example10m*terrainFactor*exampleHeightFactor;
 if(example2m>0&&example2m<example10m)ok("v3.5 forecast 10m→surface chain");
 else fail("v3.5 forecast surface chain invalid");
+
+const v36=fs.existsSync("wind-wave-layer-forecast-v36/index.html")
+  ?fs.readFileSync("wind-wave-layer-forecast-v36/index.html","utf8"):"";
+const requiredV36=[
+  ["v3.6 badge",'class="versionBadge">v3.6'],
+  ["forecast title id",'id="forecastTitle"'],
+  ["dynamic layer title","function forecastLayerTitle"],
+  ["surface mode branch","const surfaceMode=!!modelInfo().localTerrain"],
+  ["conditional surface precompute","if(modelInfo().localTerrain)await buildCenterSurfaceForecast(hourly)"],
+  ["current-layer disclosure","予報は現在選択中の風情報をそのまま引き継ぎます"],
+  ["no auto-switch disclosure","予報ボタンだけで風レイヤーを勝手に切り替えません"]
+];
+for(const [label,needle] of requiredV36){
+  if(v36.includes(needle))ok(label); else fail(label+" missing");
+}
+const fb36Start=v36.indexOf('$("forecastBtn").addEventListener("click",()=>{');
+const fb36End=v36.indexOf('$("forecastClose").addEventListener',fb36Start);
+const fb36=fb36Start>=0&&fb36End>fb36Start?v36.slice(fb36Start,fb36End):"";
+if(fb36&&!fb36.includes('activeModel="local_terrain"'))ok("v3.6 forecast button preserves selected layer");
+else fail("v3.6 forecast button still forces local terrain");
+if(v36.includes('if(modelInfo().localTerrain)await buildCenterSurfaceForecast(hourly);\n    else surfaceForecastValues=[];'))
+  ok("v3.6 surface forecast only for surface layer");
+else fail("v3.6 surface conditional forecast missing");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
