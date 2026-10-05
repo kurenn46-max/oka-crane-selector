@@ -10,7 +10,8 @@ const files=[
   ["v3.5","wind-wave-surface-forecast-v35/index.html"],
   ["v3.6","wind-wave-layer-forecast-v36/index.html"],
   ["v3.7","wind-wave-layer-forecast-v37/index.html"],
-  ["v3.8","wind-wave-learned-surface-v38/index.html"]
+  ["v3.8","wind-wave-learned-surface-v38/index.html"],
+  ["v3.9","wind-wave-learned-surface-v39/index.html"]
 ];
 
 let failed=false;
@@ -353,6 +354,29 @@ if(shrink(1)>0&&shrink(1)<shrink(5)&&shrink(5)<.82)ok("v3.8 learning shrink grow
 else fail("v3.8 learning shrink invalid");
 if(v38.includes("const prior={jma_msm:1,best_match:0,ecmwf_ifs:0}"))ok("v3.8 keeps JMA baseline before learning");
 else fail("v3.8 unlearned model prior changed");
+
+const v39=fs.existsSync("wind-wave-learned-surface-v39/index.html")
+  ?fs.readFileSync("wind-wave-learned-surface-v39/index.html","utf8"):"";
+const requiredV39=[
+  ["v3.9 badge",'class="versionBadge">v3.9'],
+  ["viewport time state","forecastViewportTime"],
+  ["viewport capture","function captureForecastViewport"],
+  ["viewport restore","function restoreForecastViewport"],
+  ["scroll capture scheduler","scheduleForecastViewportCapture"],
+  ["close-panel capture",'if($("forecastPanel").classList.contains("open"))captureForecastViewport()'],
+  ["model reopen preserve","if(forecastWasOpen)loadForecast()"],
+  ["selected-time anchor","forecastViewportTime=selectedIso"],
+  ["persistence disclosure","モデルを変更しても同じ予報時刻へ自動復帰"]
+];
+for(const [label,needle] of requiredV39){
+  if(v39.includes(needle))ok(label); else fail(label+" missing");
+}
+const mhStart=v39.indexOf('$("modelSelect").addEventListener("change",()=>{');
+const mhEnd=v39.indexOf('$("compareBtn").addEventListener',mhStart);
+const mh=mhStart>=0&&mhEnd>mhStart?v39.slice(mhStart,mhEnd):"";
+if(mh.includes("if(forecastWasOpen)captureForecastViewport()")&&!mh.includes("\n  captureForecastViewport();\n"))
+  ok("v3.9 hidden forecast panel does not overwrite anchor");
+else fail("v3.9 model handler may overwrite hidden-panel anchor");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
