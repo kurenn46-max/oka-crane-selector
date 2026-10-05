@@ -11,7 +11,8 @@ const files=[
   ["v3.6","wind-wave-layer-forecast-v36/index.html"],
   ["v3.7","wind-wave-layer-forecast-v37/index.html"],
   ["v3.8","wind-wave-learned-surface-v38/index.html"],
-  ["v3.9","wind-wave-learned-surface-v39/index.html"]
+  ["v3.9","wind-wave-learned-surface-v39/index.html"],
+  ["v3.10","wind-wave-learned-surface-v310/index.html"]
 ];
 
 let failed=false;
@@ -377,6 +378,21 @@ const mh=mhStart>=0&&mhEnd>mhStart?v39.slice(mhStart,mhEnd):"";
 if(mh.includes("if(forecastWasOpen)captureForecastViewport()")&&!mh.includes("\n  captureForecastViewport();\n"))
   ok("v3.9 hidden forecast panel does not overwrite anchor");
 else fail("v3.9 model handler may overwrite hidden-panel anchor");
+
+const v310=fs.existsSync("wind-wave-learned-surface-v310/index.html")
+  ?fs.readFileSync("wind-wave-learned-surface-v310/index.html","utf8"):"";
+const requiredV310=[
+  ["v3.10 badge",'class="versionBadge">v3.10'],
+  ["selected time priority","const target=selectedForecastTime||forecastViewportTime"],
+  ["no viewport override when locked","if(forecastWasOpen&&!selectedForecastTime)captureForecastViewport()"],
+  ["selected-time persistence disclosure","横スクロール位置より選択時刻を優先します"]
+];
+for(const [label,needle] of requiredV310){
+  if(v310.includes(needle))ok(label); else fail(label+" missing");
+}
+if(v310.includes("if(selectedIso){selectedForecastTime=selectedIso;forecastViewportTime=selectedIso;}"))
+  ok("v3.10 card selection locks timestamp");
+else fail("v3.10 card selection does not lock timestamp");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
