@@ -1,0 +1,114 @@
+
+function surfaceRoughnessProfile(hereSource,upwindSources,relief){
+  const src=Array.isArray(upwindSources)?upwindSources:[];
+  const weights=[4,3,2,1];
+  let seaW=0,totalW=0;
+  for(let i=0;i<src.length;i++){
+    const w=weights[i]||1;
+    totalW+=w;
+    if(src[i]==="海面/無効")seaW+=w;
+  }
+  const seaShare=totalW?seaW/totalW:0;
+  if(hereSource==="海面/無効"||seaShare>=.75)return{z0:.0002,label:"海面・開放水面",seaShare};
+  if(seaShare>=.40)return{z0:.005,label:"沿岸移行域",seaShare};
+  if(relief<=20)return{z0:.03,label:"開放地相当",seaShare};
+  if(relief<=80)return{z0:.05,label:"起伏地相当",seaShare};
+  return{z0:.10,label:"複雑地形相当",seaShare};
+}
+function neutralHeightFactor(z0,z=2,ref=10){
+  const zz=Math.max(.2,z),rr=Math.max(zz+.1,ref),rough=clamp(z0,.0001,1);
+  const a=Math.log((zz+rough)/rough),b=Math.log((rr+rough)/rough);
+  return clamp(a/b,.45,.92);
+}
+function surfaceConfidence(source,terrainFactor,shelterAngle,relief,seaShare){
+  let c=.70;
+  if(/^DEM5/.test(source))c+=.10;
+  else if(source==="DEM10B")c+=.05;
+  else c-=.08;
+  const d=Math.abs(terrainFactor-1);
+  if(d<.15)c+=.05;
+  else if(d>.35)c-=.08;
+  if(shelterAngle>25)c-=.05;
+  if(relief>100)c-=.04;
+  if(seaShare>=.75)c+=.03;
+  return clamp(c,.48,.90);
+}
+function terrainSteeringDegrees(leftRise,rightRise,leftDiagRise,rightDiagRise,relief,seaShare){
+  const asym=.30*(leftRise-rightRise)+.70*(leftDiagRise-rightDiagRise);
+  const reliefGain=clamp(relief/100,0,1);
+  const landGain=1-clamp(seaShare,0,1)*.80;
+  return clamp(asym/12,-18,18)*reliefGain*landGain;
+}
+async function terrainAdjustPoint(p,base,options={}){
+  if(!Number.isFinite(base.speed)||!Number.isFinite(base.dir))return{...base,factor:1};
+  const here=await elevationAt(p.lat,p.lng),e0=here.elev,up=[],upSources=[];
+  let maxAngle=0;
+  for(const d of [.2,.4,.7,1]){
+    const q=dest(p.lat,p.lng,d,base.dir),z=await elevationAt(q.lat,q.lng);
+    up.push(z.elev);
+    upSources.push(z.source);
+    const dz=z.elev-e0;
+    if(dz>0)maxAngle=Math.max(maxAngle,Math.atan2(dz,d*1000)*180/Math.PI);
+  }
+  const qd=dest(p.lat,p.lng,.3,(base.dir+180)%360);
+  const ql=dest(p.lat,p.lng,.3,(base.dir+90)%360);
+  const qr=dest(p.lat,p.lng,.3,(base.dir+270)%360);
+  const qdl=dest(p.lat,p.lng,.45,(base.dir+45)%360);
+  const qdr=dest(p.lat,p.lng,.45,(base.dir+315)%360);
+  const [down,left,right,leftDiag,rightDiag]=await Promise.all([
+    elevationAt(qd.lat,qd.lng),
+    elevationAt(ql.lat,ql.lng),
+    elevationAt(qr.lat,qr.lng),
+    elevationAt(qdl.lat,qdl.lng),
+    elevationAt(qdr.lat,qdr.lng)
+  ]);
+
+  const prominence=e0-((up[0]??e0)+down.elev)/2;
+  const terrainFactor=clamp(
+    terrainShelterFactor(maxAngle)*
+    terrainRidgeFactor(prominence)*
+    terrainChannelFactor(left.elev-e0,right.elev-e0),
+    .45,1.18
+  );
+
+  const nearby=[e0,...up,down.elev,left.elev,right.elev,leftDiag.elev,rightDiag.elev].filter(Number.isFinite);
+  const relief=nearby.length?Math.max(...nearby)-Math.min(...nearby):0;
+  const rough=surfaceRoughnessProfile(here.source,upSources,relief);
+  const turn=terrainSteeringDegrees(
+    left.elev-e0,right.elev-e0,leftDiag.elev-e0,rightDiag.elev-e0,relief,rough.seaShare
+  );
+  const steeredDir=wrapWindDir(base.dir+turn);
+  const heightFactor=neutralHeightFactor(rough.z0,2,10);
+  const speed10Terrain=base.speed*terrainFactor;
+  const rawSurfaceSpeed=speed10Terrain*heightFactor;
+  const rawSurfaceDir=steeredDir;
+  const learned=options.skipCalibration
+    ?{factor:1,add:0,dirOffset:0,n:0,weight:0}
+    :learnedCorrection(p,rawSurfaceDir,rawSurfaceSpeed);
+  const speed2m=applyLearnedSpeed(rawSurfaceSpeed,learned);
+  const finalDir=wrapWindDir(rawSurfaceDir+learned.dirOffset);
+  const confidence=surfaceConfidence(here.source,terrainFactor,maxAngle,relief,rough.seaShare);
+
+  return{
+    speed:speed2m,
+    dir:finalDir,
+    rawSurfaceSpeed,
+    rawSurfaceDir,
+    factor:terrainFactor,
+    terrainTurn:turn,
+    heightFactor,
+    speed10Terrain,
+    roughnessZ0:rough.z0,
+    roughnessLabel:rough.label,
+    seaShare:rough.seaShare,
+    confidence,
+    calibrationN:learned.n,
+    calibrationFactor:learned.factor,
+    calibrationAdd:learned.add,
+    calibrationDirOffset:learned.dirOffset,
+    relief,
+    shelterAngle:maxAngle,
+    elevation:e0,
+    terrainSource:here.source
+  };
+}

@@ -1,7 +1,7 @@
 name: Deploy GitHub Pages
 on:
   push:
-    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc"]
+    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc", "wind-wave-v38-rc"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,6 +26,8 @@ jobs:
         run: node scripts/build-wind-wave-v36.mjs
       - name: Build Wind & Wave V3.7
         run: node scripts/build-wind-wave-v37.mjs
+      - name: Build Wind & Wave V3.8
+        run: node scripts/build-wind-wave-v38.mjs
       - name: Smoke test Wind & Wave
         run: node scripts/check-wind-wave.mjs
       - name: Install browser test runtime
@@ -34,6 +36,8 @@ jobs:
           npx playwright install chromium
       - name: Browser interaction test V3.7
         run: node scripts/e2e-wind-wave-v37.mjs
+      - name: Browser interaction test V3.8
+        run: node scripts/e2e-wind-wave-v38.mjs
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -55,6 +59,8 @@ jobs:
         run: node scripts/build-wind-wave-v36.mjs
       - name: Build Wind & Wave V3.7
         run: node scripts/build-wind-wave-v37.mjs
+      - name: Build Wind & Wave V3.8
+        run: node scripts/build-wind-wave-v38.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Cache JMA tide tables

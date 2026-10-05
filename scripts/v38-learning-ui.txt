@@ -1,0 +1,58 @@
+
+function updateLearningBadge(){
+  const n=surfaceLearningNearbyCount(center);
+  $("learnBtn").textContent=n>0?"🧪実測学習 "+n:"🧪実測学習";
+  $("learnInfo").textContent=n>0
+    ?"この周辺で"+n+"件学習済み。近い地点・似た風向ほど強く反映します。"
+    :"この周辺の学習はまだありません。携帯風速計などの約2m実測を登録できます。";
+}
+function openLearningPanel(){
+  clearError();
+  if(!modelInfo().localTerrain){
+    showError("実測学習は「精密地表風」をONにしてから使えます");
+    return;
+  }
+  updateLearningBadge();
+  $("learnBackdrop").classList.add("open");
+  $("learnPanel").classList.add("open");
+}
+function closeLearningPanel(){
+  $("learnBackdrop").classList.remove("open");
+  $("learnPanel").classList.remove("open");
+  $("learnMsg").textContent="";
+}
+async function submitLearning(e){
+  e.preventDefault();
+  const speed=Number($("learnSpeed").value);
+  const dirRaw=$("learnDir").value;
+  const dir=dirRaw===""?null:Number(dirRaw);
+  if(!Number.isFinite(speed)||speed<0||speed>40){
+    $("learnMsg").textContent="実測風速は0〜40 m/sで入力してください";
+    return;
+  }
+  $("learnSave").disabled=true;
+  $("learnMsg").textContent="現在の3モデルと照合して学習中…";
+  try{
+    await recordSurfaceObservation(speed,Number.isFinite(dir)?dir:null);
+    $("learnSpeed").value="";
+    $("learnDir").value="";
+    invalidateForecast();
+    updateLearningBadge();
+    $("learnMsg").textContent="✅ 保存しました。次の更新・予報から補正に使います。";
+    setTimeout(()=>{
+      closeLearningPanel();
+      refreshData();
+    },450);
+  }catch(err){
+    $("learnMsg").textContent="学習できません："+(err&&err.message||err);
+  }finally{
+    $("learnSave").disabled=false;
+  }
+}
+function clearLearningForHere(){
+  const n=clearSurfaceLearningNear(center);
+  invalidateForecast();
+  updateLearningBadge();
+  $("learnMsg").textContent=n>0?"この周辺の学習"+n+"件を消去しました":"この周辺に学習データはありません";
+  refreshData();
+}
