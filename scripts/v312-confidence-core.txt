@@ -124,7 +124,15 @@ async function getPrecisionWind(ps){
 }
 async function getPrecisionWindAtTime(ps,iso){
   const sets=await precisionModelSets(ps,"time",iso,1);
-  return blendPrecisionRows(sets,ps,false);
+  const out=blendPrecisionRows(sets,ps,false);
+  const leadHours=Math.max(0,(new Date(iso).getTime()-Date.now())/3600000);
+  out.forEach(row=>{
+    if(row.precisionMeta){
+      row.precisionMeta.leadHours=leadHours;
+      row.precisionMeta.leadScore=precisionLeadScore(leadHours);
+    }
+  });
+  return out;
 }
 async function getPrecisionWindForecast(ps){
   const sets=await precisionModelSets(ps,"forecast",null,168);
