@@ -11,7 +11,8 @@ rep('<h1>OKA Learned Surface Wind <span class="versionBadge">v3.8</span></h1>\n<
 
 rep("let selectedForecastTime=null;","let selectedForecastTime=null;\nlet forecastViewportTime=null;\nlet forecastScrollRaf=null;","forecast viewport state");
 
-rep('function closeForecastPanel(){\n  $("forecastBackdrop").classList.remove("open");',\n    'function closeForecastPanel(){\n  if($("forecastPanel").classList.contains("open"))captureForecastViewport();\n  $("forecastBackdrop").classList.remove("open");',"capture on close");
+rep('function closeForecastPanel(){\n  $("forecastBackdrop").classList.remove("open");',
+    'function closeForecastPanel(){\n  if($("forecastPanel").classList.contains("open"))captureForecastViewport();\n  $("forecastBackdrop").classList.remove("open");',"capture on close");
 
 const viewportFns=lines([
   "function forecastViewportIndex(){",
