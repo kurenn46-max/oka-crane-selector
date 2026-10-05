@@ -9,7 +9,8 @@ const files=[
   ["v3.4","wind-wave-surface-v34/index.html"],
   ["v3.5","wind-wave-surface-forecast-v35/index.html"],
   ["v3.6","wind-wave-layer-forecast-v36/index.html"],
-  ["v3.7","wind-wave-layer-forecast-v37/index.html"]
+  ["v3.7","wind-wave-layer-forecast-v37/index.html"],
+  ["v3.8","wind-wave-learned-surface-v38/index.html"]
 ];
 
 let failed=false;
@@ -314,6 +315,44 @@ const fCoast=heightFactor(roughnessByFetch(.5));
 const fLand=heightFactor(roughnessByFetch(.1));
 if(fSea>fCoast&&fCoast>fLand)ok("v3.7 sea→coast→land 2m factor order");
 else fail("v3.7 2m fetch conversion order invalid");
+
+const v38=fs.existsSync("wind-wave-learned-surface-v38/index.html")
+  ?fs.readFileSync("wind-wave-learned-surface-v38/index.html","utf8"):"";
+const requiredV38=[
+  ["v3.8 badge",'class="versionBadge">v3.8'],
+  ["learning button",'id="learnBtn"'],
+  ["learning panel",'id="learnPanel"'],
+  ["terrain steering","function terrainSteeringDegrees"],
+  ["steering bound","-18,18"],
+  ["local learning storage","SURFACE_LEARN_KEY"],
+  ["learned correction","function learnedCorrection"],
+  ["adaptive model weights","function precisionModelWeights"],
+  ["precision model forecast","getPrecisionWindForecast"],
+  ["field observation recorder","recordSurfaceObservation"],
+  ["device-only disclosure","学習データはこの端末内だけに保存"]
+];
+for(const [label,needle] of requiredV38){
+  if(v38.includes(needle))ok(label); else fail(label+" missing");
+}
+function steering(leftRise,rightRise,leftDiagRise,rightDiagRise,relief,seaShare){
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const asym=.30*(leftRise-rightRise)+.70*(leftDiagRise-rightDiagRise);
+  const reliefGain=clamp(relief/100,0,1);
+  const landGain=1-clamp(seaShare,0,1)*.80;
+  return clamp(asym/12,-18,18)*reliefGain*landGain;
+}
+const turnA=steering(80,0,80,0,100,0);
+const turnB=steering(0,80,0,80,100,0);
+const turnSea=steering(80,0,80,0,100,1);
+if(turnA>0&&turnA<=18&&turnB<0&&turnB>=-18)ok("v3.8 terrain steering sign and bounds");
+else fail("v3.8 terrain steering sign/bounds invalid");
+if(Math.abs(turnSea)<Math.abs(turnA))ok("v3.8 open-sea steering is damped");
+else fail("v3.8 sea steering damping invalid");
+function shrink(weight){return Math.max(0,Math.min(.82,weight/(weight+2)));}
+if(shrink(1)>0&&shrink(1)<shrink(5)&&shrink(5)<.82)ok("v3.8 learning shrink grows with evidence");
+else fail("v3.8 learning shrink invalid");
+if(v38.includes("const prior={jma_msm:1,best_match:0,ecmwf_ifs:0}"))ok("v3.8 keeps JMA baseline before learning");
+else fail("v3.8 unlearned model prior changed");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
