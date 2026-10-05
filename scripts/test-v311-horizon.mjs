@@ -44,3 +44,32 @@ for(const i of offsets){
 
 console.log("APP_DIRECT_SURFACE_LIST_LIMIT","96h","4 days");
 console.log("APP_LONG_MODEL_LIST_LIMIT","168h","7 days");
+async function exact(model,iso){
+  const u=new URL("https://api.open-meteo.com/v1/forecast");
+  u.searchParams.set("latitude",String(lat));
+  u.searchParams.set("longitude",String(lng));
+  u.searchParams.set("hourly","wind_speed_10m,wind_direction_10m");
+  u.searchParams.set("start_hour",iso);
+  u.searchParams.set("end_hour",iso);
+  u.searchParams.set("models",model);
+  u.searchParams.set("wind_speed_unit","ms");
+  u.searchParams.set("timezone","Asia/Tokyo");
+  const r=await fetch(u,{signal:AbortSignal.timeout(20000)});
+  if(!r.ok)return{ok:false,status:r.status,finite:false};
+  const d=await r.json(),h=d.hourly||{};
+  return{ok:true,status:r.status,finite:validAt(h,0),speed:h.wind_speed_10m?.[0],dir:h.wind_direction_10m?.[0]};
+}
+
+const exactOffsets=[65,66,71,95,119,143,167];
+const refTimes=rows.best_match?.hourly?.time||[];
+for(const i of exactOffsets){
+  const iso=refTimes[i];
+  if(!iso)continue;
+  const result={};
+  for(const model of models)result[model]=await exact(model,iso);
+  const j=result.jma_msm;
+  const appBaselineFinite=!!(j?.ok&&j?.finite);
+  console.log("EXACT",i+1+"h",iso,
+    models.map(m=>m+":"+(result[m].ok?(result[m].finite?"VALID":"NULL"):"HTTP"+result[m].status)).join(" "),
+    "V311_NO_LEARNING",appBaselineFinite?"CALCULABLE":"NO_SURFACE_VALUE");
+}
