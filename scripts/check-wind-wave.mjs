@@ -5,7 +5,8 @@ const files=[
   ["v2","wind-wave-5km-v2/index.html"],
   ["v3","wind-wave-5km-v3/index.html"],
   ["v3.2","wind-wave-1km-v32/index.html"],
-  ["v3.3","wind-wave-local-v33/index.html"]
+  ["v3.3","wind-wave-local-v33/index.html"],
+  ["v3.4","wind-wave-surface-v34/index.html"]
 ];
 
 let failed=false;
@@ -197,6 +198,38 @@ async function smokeLocalSources(){
 }
 await smokeLocalSources();
 
+
+const v34=fs.existsSync("wind-wave-surface-v34/index.html")
+  ?fs.readFileSync("wind-wave-surface-v34/index.html","utf8"):"";
+const requiredV34=[
+  ["v3.4 badge",'class="versionBadge">v3.4'],
+  ["one button",'id="precisionBtn"'],
+  ["2m card label","地表風（約2m）"],
+  ["surface roughness","function surfaceRoughnessProfile"],
+  ["height profile","function neutralHeightFactor"],
+  ["2m final speed","speed2m"],
+  ["calculation confidence","function surfaceConfidence"],
+  ["surface-only disclosure","表示する風速は約2m地表風のみ"],
+  ["forecast surface compute","タップで計算"],
+  ["precision activation","function activatePrecisionSurface"],
+  ["precision zoom","modelInfo().localTerrain&&zoom<15"]
+];
+for(const [label,needle] of requiredV34){
+  if(v34.includes(needle))ok(label); else fail(label+" missing");
+}
+
+function heightFactor(z0,z=2,ref=10){
+  const rough=Math.max(.0001,Math.min(1,z0));
+  const a=Math.log((z+rough)/rough),b=Math.log((ref+rough)/rough);
+  return Math.max(.45,Math.min(.92,a/b));
+}
+const hfSea=heightFactor(.0002),hfOpen=heightFactor(.03),hfRough=heightFactor(.30);
+if(hfSea>hfOpen&&hfOpen>hfRough&&hfSea<1&&hfRough>.45)
+  ok("v3.4 10m→2m log profile order");
+else fail("v3.4 height factors invalid "+[hfSea,hfOpen,hfRough].join(","));
+if(6*hfSea<6&&6*hfOpen<6&&6*hfRough<6)
+  ok("v3.4 2m wind stays below 10m baseline");
+else fail("v3.4 2m conversion not reducing baseline");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
