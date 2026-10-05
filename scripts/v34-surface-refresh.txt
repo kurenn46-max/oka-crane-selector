@@ -1,0 +1,78 @@
+
+async function refreshLocalSelected(req){
+  const anchors=localWindAnchors();
+  const [rows,wave]=await Promise.all([
+    getWindAtTime(anchors,selectedForecastTime),
+    getWaveAtTime(selectedForecastTime).catch(()=>null)
+  ]);
+  if(req!==dataRequestSeq)return;
+  windSamples=await buildLocalSurfaceSamples(rows,anchors,false);
+  if(req!==dataRequestSeq)return;
+  renderWindMarkers();
+
+  const cc=windSamples.find(x=>x.isCenter)||windSamples[0]||{};
+  $("wind").textContent=Number.isFinite(cc.speed)?"≈"+cc.speed.toFixed(1)+" m/s":"-- m/s";
+  $("windDir").textContent=Number.isFinite(cc.dir)?compass(cc.dir)+"から":"--";
+  $("gust").textContent=Number.isFinite(cc.confidence)?Math.round(cc.confidence*100)+"%":"--";
+
+  if(wave&&wave.hourly){
+    const model={lat:Number(wave.latitude),lng:Number(wave.longitude)};
+    const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity,near=seaDistance<=20;
+    const h=wave.hourly.wave_height&&wave.hourly.wave_height[0],p=wave.hourly.wave_period&&wave.hourly.wave_period[0];
+    $("wave").textContent=near&&Number.isFinite(h)?h.toFixed(1)+" m":"海域外";
+    $("period").textContent=near&&Number.isFinite(p)
+      ?("周期 "+p.toFixed(1)+" s / "+marineTrustLabel(seaDistance)+" "+seaDistance.toFixed(0)+"km")
+      :"周期 -- s";
+  }else{
+    $("wave").textContent="取得不可";
+    $("period").textContent="周期 -- s";
+  }
+
+  const d=new Date(selectedForecastTime);
+  const label=(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+"時";
+  setStatus("予報："+label+"　精密地表風 約2m / 100m内部"+localSurfaceMeta.computed+
+    "点 / 地形"+localSurfaceMeta.centerFactor.toFixed(2)+"× / 高度"+localSurfaceMeta.centerHeightFactor.toFixed(2)+"×");
+}
+async function refreshLocalCurrent(req){
+  const anchors=localWindAnchors();
+  const [rows,w]=await Promise.all([
+    getWind(anchors),
+    getWave().catch(()=>null)
+  ]);
+  if(req!==dataRequestSeq)return;
+  windSamples=await buildLocalSurfaceSamples(rows,anchors,true);
+  if(req!==dataRequestSeq)return;
+  renderWindMarkers();
+
+  const cc=windSamples.find(x=>x.isCenter)||windSamples[0]||{};
+  const cRow=rows[0]||{},cur=cRow.current||{},hour=cRow.hourly||{};
+  currentSea.wind=Number.isFinite(cc.speed)?cc.speed:null;
+  currentSea.gust=null;
+  const apiTime=cur.time?new Date(cur.time):((hour.time&&hour.time[0])?new Date(hour.time[0]):new Date());
+  currentSea.updatedAt=Number.isFinite(apiTime.getTime())?apiTime:new Date();
+
+  $("wind").textContent=Number.isFinite(cc.speed)?"≈"+cc.speed.toFixed(1)+" m/s":"-- m/s";
+  $("windDir").textContent=Number.isFinite(cc.dir)?compass(cc.dir)+"から":"--";
+  $("gust").textContent=Number.isFinite(cc.confidence)?Math.round(cc.confidence*100)+"%":"--";
+
+  if(w){
+    const model={lat:Number(w.latitude),lng:Number(w.longitude)};
+    const seaDistance=Number.isFinite(model.lat)?hav(center,model):Infinity,near=seaDistance<=20,wc=w.current||{};
+    currentSea.wave=near&&Number.isFinite(wc.wave_height)?wc.wave_height:null;
+    currentSea.period=near&&Number.isFinite(wc.wave_period)?wc.wave_period:null;
+    $("wave").textContent=near&&Number.isFinite(wc.wave_height)?wc.wave_height.toFixed(1)+" m":"海域外";
+    $("period").textContent=near&&Number.isFinite(wc.wave_period)
+      ?("周期 "+wc.wave_period.toFixed(1)+" s / "+marineTrustLabel(seaDistance)+" "+seaDistance.toFixed(0)+"km")
+      :"周期 -- s";
+  }else{
+    currentSea.wave=null;currentSea.period=null;
+    $("wave").textContent="取得不可";
+    $("period").textContent="周期 -- s";
+  }
+
+  const st=localRenderStride();
+  const shown=windSamples.filter(x=>x.isCenter||((Math.abs(x.gx)%st)===0&&(Math.abs(x.gy)%st)===0)).length;
+  setStatus("✅ 精密地表風：約2m / 100m内部"+localSurfaceMeta.computed+"点 / 表示"+shown+
+    "点 / "+localSurfaceMeta.centerRoughness+" / 信頼度"+Math.round(localSurfaceMeta.centerConfidence*100)+
+    "% / 更新 "+fmtHM(currentSea.updatedAt));
+}
