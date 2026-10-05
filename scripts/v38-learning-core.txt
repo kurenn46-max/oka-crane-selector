@@ -71,7 +71,7 @@ function applyLearnedSpeed(speed,c){
   return Math.max(0,speed*c.factor);
 }
 function precisionModelWeights(p,dir){
-  const prior={jma_msm:.72,best_match:.20,ecmwf_ifs:.08};
+  const prior={jma_msm:1,best_match:0,ecmwf_ifs:0};
   const m=learningMatches(p,dir).filter(o=>o.models&&typeof o.models==="object");
   if(!m.length)return{...prior,_n:0,_weight:0};
   const scores={};
