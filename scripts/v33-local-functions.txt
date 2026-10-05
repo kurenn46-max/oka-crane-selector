@@ -1,0 +1,164 @@
+
+function localGridPoints(stepKm=.1,radiusKm=1){
+  const n=Math.round(radiusKm/stepKm),latStep=stepKm/111.32;
+  const cos=Math.max(.2,Math.cos(center.lat*Math.PI/180));
+  const lngStep=stepKm/(111.32*cos);
+  const arr=[{lat:center.lat,lng:center.lng,isCenter:true,gx:0,gy:0,xKm:0,yKm:0}];
+  for(let iy=-n;iy<=n;iy++)for(let ix=-n;ix<=n;ix++){
+    if(ix===0&&iy===0)continue;
+    const xKm=ix*stepKm,yKm=iy*stepKm;
+    if(Math.hypot(xKm,yKm)>radiusKm+.0001)continue;
+    arr.push({lat:center.lat+iy*latStep,lng:center.lng+ix*lngStep,gx:ix,gy:iy,xKm,yKm});
+  }
+  return arr;
+}
+function localWindAnchors(){
+  const latStep=1/111.32,cos=Math.max(.2,Math.cos(center.lat*Math.PI/180));
+  const lngStep=1/(111.32*cos);
+  const arr=[{lat:center.lat,lng:center.lng,isCenter:true,xKm:0,yKm:0}];
+  for(const yKm of [-1,0,1])for(const xKm of [-1,0,1]){
+    if(xKm===0&&yKm===0)continue;
+    arr.push({lat:center.lat+yKm*latStep,lng:center.lng+xKm*lngStep,xKm,yKm});
+  }
+  return arr;
+}
+function windVector(speed,dir){
+  if(!Number.isFinite(speed)||!Number.isFinite(dir))return null;
+  const r=dir*Math.PI/180;
+  return{u:-speed*Math.sin(r),v:-speed*Math.cos(r)};
+}
+function vectorWind(u,v){
+  if(!Number.isFinite(u)||!Number.isFinite(v))return{speed:null,dir:null};
+  return{speed:Math.hypot(u,v),dir:(Math.atan2(-u,-v)*180/Math.PI+360)%360};
+}
+function rowWind(row,preferCurrent){
+  const c=row&&row.current||{},h=row&&row.hourly||{};
+  const hs=h.wind_speed_10m&&h.wind_speed_10m[0],hd=h.wind_direction_10m&&h.wind_direction_10m[0];
+  const speed=preferCurrent&&Number.isFinite(c.wind_speed_10m)?c.wind_speed_10m:hs;
+  const dir=preferCurrent&&Number.isFinite(c.wind_direction_10m)?c.wind_direction_10m:hd;
+  return{speed,dir,time:(preferCurrent&&c.time)||((h.time&&h.time[0])||null)};
+}
+function buildAnchorWind(rows,anchors,preferCurrent){
+  return anchors.map((a,i)=>{
+    const w=rowWind(rows[i]||{},preferCurrent),uv=windVector(w.speed,w.dir);
+    return{...a,...w,u:uv&&uv.u,v:uv&&uv.v};
+  }).filter(a=>Number.isFinite(a.u)&&Number.isFinite(a.v));
+}
+function interpolateAnchorWind(anchors,p){
+  if(!anchors.length)return{speed:null,dir:null};
+  let su=0,sv=0,sw=0;
+  for(const a of anchors){
+    const d=Math.hypot((p.xKm||0)-(a.xKm||0),(p.yKm||0)-(a.yKm||0));
+    if(d<.0001)return vectorWind(a.u,a.v);
+    const w=1/(d*d+.02);su+=a.u*w;sv+=a.v*w;sw+=w;
+  }
+  return vectorWind(su/sw,sv/sw);
+}
+function terrainPixel(lat,lng,z){
+  const p=project(lat,lng,z),tx=Math.floor(p.x/256),ty=Math.floor(p.y/256);
+  return{tx,ty,px:clamp(Math.floor(p.x-tx*256),0,255),py:clamp(Math.floor(p.y-ty*256),0,255)};
+}
+async function blobImageData(blob){
+  const canvas=document.createElement("canvas");canvas.width=256;canvas.height=256;
+  const ctx=canvas.getContext("2d",{willReadFrequently:true});
+  if(!ctx)throw new Error("DEM canvas unavailable");
+  if("createImageBitmap" in window){
+    const bmp=await createImageBitmap(blob);ctx.drawImage(bmp,0,0,256,256);if(bmp.close)bmp.close();
+  }else{
+    const url=URL.createObjectURL(blob);
+    try{
+      const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=url;});
+      ctx.drawImage(img,0,0,256,256);
+    }finally{URL.revokeObjectURL(url);}
+  }
+  return ctx.getImageData(0,0,256,256).data;
+}
+async function terrainTile(source,tx,ty){
+  const key=source.id+":"+source.z+":"+tx+":"+ty;
+  if(terrainTileCache.has(key))return terrainTileCache.get(key);
+  const p=(async()=>{
+    try{
+      const u="https://cyberjapandata.gsi.go.jp/xyz/"+source.id+"/"+source.z+"/"+tx+"/"+ty+".png";
+      const r=await fetchWithTimeout(u,{cache:"force-cache"},9000);
+      if(!r.ok)return null;
+      return await blobImageData(await r.blob());
+    }catch(_){return null;}
+  })();
+  terrainTileCache.set(key,p);
+  if(terrainTileCache.size>80){const k=terrainTileCache.keys().next().value;if(k)terrainTileCache.delete(k);}
+  return p;
+}
+function decodeElevation(data,px,py){
+  if(!data)return null;
+  const i=(py*256+px)*4,r=data[i],g=data[i+1],b=data[i+2];
+  if(r===128&&g===0&&b===0)return null;
+  const x=(r<<16)+(g<<8)+b;
+  if(x===8388608)return null;
+  return(x<8388608?x:x-16777216)*.01;
+}
+async function elevationAt(lat,lng){
+  for(const source of TERRAIN_SOURCES){
+    const p=terrainPixel(lat,lng,source.z),data=await terrainTile(source,p.tx,p.ty);
+    const elev=decodeElevation(data,p.px,p.py);
+    if(Number.isFinite(elev))return{elev,source:source.label};
+  }
+  return{elev:0,source:"海面/無効"};
+}
+function terrainShelterFactor(angleDeg){
+  if(!Number.isFinite(angleDeg)||angleDeg<=3)return 1;
+  return clamp(1-(angleDeg-3)*.018,.52,1);
+}
+function terrainRidgeFactor(prominenceM){
+  if(!Number.isFinite(prominenceM)||prominenceM<=25)return 1;
+  return 1+clamp((prominenceM-25)/220*.10,0,.10);
+}
+function terrainChannelFactor(leftRise,rightRise){
+  const m=Math.min(leftRise,rightRise);
+  if(!Number.isFinite(m)||m<=35)return 1;
+  return 1+clamp((m-35)/260*.06,0,.06);
+}
+async function terrainAdjustPoint(p,base){
+  if(!Number.isFinite(base.speed)||!Number.isFinite(base.dir))return{...base,factor:1};
+  const here=await elevationAt(p.lat,p.lng),e0=here.elev,up=[];
+  let maxAngle=0;
+  for(const d of [.2,.4,.7,1]){
+    const q=dest(p.lat,p.lng,d,base.dir),z=await elevationAt(q.lat,q.lng);up.push(z.elev);
+    const dz=z.elev-e0;if(dz>0)maxAngle=Math.max(maxAngle,Math.atan2(dz,d*1000)*180/Math.PI);
+  }
+  const qd=dest(p.lat,p.lng,.3,(base.dir+180)%360);
+  const ql=dest(p.lat,p.lng,.3,(base.dir+90)%360);
+  const qr=dest(p.lat,p.lng,.3,(base.dir+270)%360);
+  const [down,left,right]=await Promise.all([
+    elevationAt(qd.lat,qd.lng),elevationAt(ql.lat,ql.lng),elevationAt(qr.lat,qr.lng)
+  ]);
+  const prominence=e0-((up[0]??e0)+down.elev)/2;
+  const factor=clamp(
+    terrainShelterFactor(maxAngle)*
+    terrainRidgeFactor(prominence)*
+    terrainChannelFactor(left.elev-e0,right.elev-e0),
+    .45,1.18
+  );
+  return{speed:base.speed*factor,dir:base.dir,factor,shelterAngle:maxAngle,elevation:e0,terrainSource:here.source};
+}
+async function buildLocalSurfaceSamples(rows,anchors,preferCurrent){
+  const aw=buildAnchorWind(rows,anchors,preferCurrent),grid=localGridPoints(.1,1),out=new Array(grid.length);
+  let cursor=0;
+  const workers=Math.min(10,grid.length);
+  await Promise.all(Array.from({length:workers},async()=>{
+    while(true){
+      const i=cursor++;if(i>=grid.length)return;
+      const p=grid[i],base=interpolateAnchorWind(aw,p),adj=await terrainAdjustPoint(p,base);
+      out[i]={...p,...adj,estimated:true,compareLevel:""};
+    }
+  }));
+  const c=out.find(x=>x.isCenter)||out[0];
+  localSurfaceMeta={centerFactor:Number.isFinite(c&&c.factor)?c.factor:1,centerAngle:Number.isFinite(c&&c.shelterAngle)?c.shelterAngle:0,
+    centerElevation:Number.isFinite(c&&c.elevation)?c.elevation:null,computed:out.length,terrainSource:(c&&c.terrainSource)||""};
+  return out;
+}
+function localRenderStride(){return zoom>=16?1:zoom===15?2:zoom===14?3:4;}
+function rangeLabel(){
+  if(modelInfo().localTerrain)return"局地1km";
+  if(modelInfo().dense1km)return"1km間隔";
+  return"青円5km";
+}
