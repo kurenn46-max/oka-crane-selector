@@ -42,7 +42,10 @@ const required=[
   ["tide pointer swipe",'panel.addEventListener("pointermove"'],
   ["JMA tide priority","JMA_TIDE_MAX_KM=45"],
   ["sea temperature","sea_surface_temperature"],
-  ["offline hold",'オフライン：最後の表示を保持']
+  ["offline hold",'オフライン：最後の表示を保持'],
+  ["map focus button",'id="mapExpand"'],
+  ["map focus mode","body.mapFocus"],
+  ["mobile compact layout","@media (max-width:600px)"]
 ];
 for(const [label,needle] of required){
   if(v3.includes(needle))ok(label); else fail(label+" missing");
