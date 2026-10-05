@@ -36,6 +36,8 @@ jobs:
         run: node scripts/build-wind-wave-v311.mjs
       - name: Smoke test Wind & Wave
         run: node scripts/check-wind-wave.mjs
+      - name: Test V3.11 forecast horizon
+        run: node scripts/test-v311-horizon.mjs
       - name: Install browser test runtime
         run: |
           npm install --no-save playwright@1.56.1
