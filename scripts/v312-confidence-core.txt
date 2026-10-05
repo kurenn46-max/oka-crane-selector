@@ -1,0 +1,132 @@
+function precisionValidValues(values){
+  return values.filter(x=>Number.isFinite(x.speed)&&Number.isFinite(x.dir));
+}
+function precisionLeadScore(hours){
+  const h=Math.max(0,Number(hours)||0);
+  if(h<=12)return .96;
+  if(h<=24)return .92;
+  if(h<=48)return .84;
+  if(h<=72)return .75;
+  if(h<=96)return .66;
+  if(h<=120)return .58;
+  if(h<=144)return .50;
+  return .42;
+}
+function precisionAgreementScore(values){
+  const v=precisionValidValues(values);
+  if(v.length<2)return .55;
+  const speeds=v.map(x=>x.speed);
+  const speedSpread=Math.max(...speeds)-Math.min(...speeds);
+  let dirSpread=0;
+  for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)dirSpread=Math.max(dirSpread,angleDiff(v[i].dir,v[j].dir));
+  const sp=Math.min(1,speedSpread/5);
+  const dp=Math.min(1,dirSpread/100);
+  return clamp(1-(sp*.55+dp*.45),.35,1);
+}
+function precisionSourceScore(keys){
+  const s=new Set(keys||[]);
+  if(s.has("jma_msm"))return s.size>=2?.96:.90;
+  if(s.has("best_match")&&s.has("ecmwf_ifs"))return .72;
+  if(s.size===1)return .55;
+  return .40;
+}
+function precisionSourceLabel(keys){
+  const s=new Set(keys||[]);
+  if(s.has("jma_msm"))return "JMA基準";
+  if(s.has("best_match")&&s.has("ecmwf_ifs"))return "ECMWF＋Best";
+  if(s.has("ecmwf_ifs"))return "ECMWF";
+  if(s.has("best_match"))return "Best Match";
+  return "モデル不明";
+}
+function precisionWeightsForValues(p,dir,values){
+  const valid=precisionValidValues(values);
+  const available=valid.map(x=>x.key);
+  if(!available.length)return{};
+  const learned=precisionModelWeights(p,Number.isFinite(dir)?dir:0);
+  if(!available.includes("jma_msm")&&!(learned&&learned._weight>0)){
+    const eq=1/available.length,out={};
+    available.forEach(k=>out[k]=eq);
+    return out;
+  }
+  return normalizeModelWeights(learned,available);
+}
+function precisionMeta(values,weights,leadHours,p,dir){
+  const valid=precisionValidValues(values);
+  const used=valid.filter(x=>(Number(weights&&weights[x.key])||0)>.001).map(x=>x.key);
+  const learned=precisionModelWeights(p,Number.isFinite(dir)?dir:0);
+  return{
+    sources:valid.map(x=>x.key),
+    usedSources:used.length?used:valid.map(x=>x.key),
+    leadHours:Number(leadHours)||0,
+    leadScore:precisionLeadScore(leadHours),
+    agreement:precisionAgreementScore(valid),
+    sourceScore:precisionSourceScore(valid.map(x=>x.key)),
+    learningN:Number(learned&&learned._n)||0
+  };
+}
+function surfaceForecastAccuracy(terrainConfidence,meta={},learningN=0){
+  const terrain=clamp(Number.isFinite(terrainConfidence)?terrainConfidence:.55,.45,.92);
+  const lead=clamp(Number.isFinite(meta.leadScore)?meta.leadScore:.55,.35,.98);
+  const source=clamp(Number.isFinite(meta.sourceScore)?meta.sourceScore:.55,.40,.98);
+  const agreement=clamp(Number.isFinite(meta.agreement)?meta.agreement:.55,.35,1);
+  const n=Math.max(Number(meta.learningN)||0,Number(learningN)||0);
+  const learning=clamp(.50+Math.min(n,8)*.05,.50,.90);
+  return clamp(Math.round(100*(terrain*.40+lead*.30+source*.15+agreement*.10+learning*.05)),35,92);
+}
+function modelValueAtIso(row,iso,index=0){
+  const h=row&&row.hourly||{},times=h.time||[];
+  let i=iso?times.indexOf(iso):-1;
+  if(i<0)i=index;
+  return{
+    speed:h.wind_speed_10m&&h.wind_speed_10m[i],
+    dir:h.wind_direction_10m&&h.wind_direction_10m[i],
+    time:times[i]||iso||null
+  };
+}
+function blendPrecisionRows(sets,ps,preferCurrent){
+  return ps.map((p,i)=>{
+    const values=sets.map(x=>({key:x.key,...modelValueAtRow(x.rows[i]||{},preferCurrent,0)}));
+    const valid=precisionValidValues(values);
+    const jma=valid.find(x=>x.key==="jma_msm"),base=jma||valid[0]||{dir:0};
+    const weights=precisionWeightsForValues(p,base.dir,valid);
+    const b=blendWindValues(valid,weights);
+    const time=(valid.find(x=>x.time)||values.find(x=>x.time)||{}).time||null;
+    const meta=precisionMeta(valid,weights,0,p,b.dir);
+    return{
+      current:{time,wind_speed_10m:b.speed,wind_direction_10m:b.dir},
+      hourly:{time:[time],wind_speed_10m:[b.speed],wind_direction_10m:[b.dir]},
+      precisionWeights:weights,
+      precisionMeta:meta
+    };
+  });
+}
+function blendPrecisionForecastRows(sets,ps){
+  return ps.map((p,pi)=>{
+    const timeSet=sets.map(x=>x.rows[pi]&&x.rows[pi].hourly||{}).sort((a,b)=>(b.time||[]).length-(a.time||[]).length)[0]||{};
+    const times=timeSet.time||[];
+    const speeds=[],dirs=[],metas=[];
+    for(let i=0;i<times.length;i++){
+      const iso=times[i];
+      const values=sets.map(x=>({key:x.key,...modelValueAtIso(x.rows[pi]||{},iso,i)}));
+      const valid=precisionValidValues(values);
+      const jma=valid.find(x=>x.key==="jma_msm"),base=jma||valid[0]||{dir:0};
+      const weights=precisionWeightsForValues(p,base.dir,valid);
+      const b=blendWindValues(valid,weights);
+      speeds.push(b.speed);dirs.push(b.dir);
+      metas.push(precisionMeta(valid,weights,i,p,b.dir));
+    }
+    return{hourly:{time:times,wind_speed_10m:speeds,wind_direction_10m:dirs},precision_meta:metas};
+  });
+}
+async function getPrecisionWind(ps){
+  const sets=await precisionModelSets(ps,"current");
+  return blendPrecisionRows(sets,ps,true);
+}
+async function getPrecisionWindAtTime(ps,iso){
+  const sets=await precisionModelSets(ps,"time",iso,1);
+  return blendPrecisionRows(sets,ps,false);
+}
+async function getPrecisionWindForecast(ps){
+  const sets=await precisionModelSets(ps,"forecast",null,168);
+  return blendPrecisionForecastRows(sets,ps);
+}
