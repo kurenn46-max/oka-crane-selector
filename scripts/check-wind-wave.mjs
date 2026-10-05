@@ -12,7 +12,8 @@ const files=[
   ["v3.7","wind-wave-layer-forecast-v37/index.html"],
   ["v3.8","wind-wave-learned-surface-v38/index.html"],
   ["v3.9","wind-wave-learned-surface-v39/index.html"],
-  ["v3.10","wind-wave-learned-surface-v310/index.html"]
+  ["v3.10","wind-wave-learned-surface-v310/index.html"],
+  ["v3.11","wind-wave-learned-surface-v311/index.html"]
 ];
 
 let failed=false;
@@ -393,6 +394,26 @@ for(const [label,needle] of requiredV310){
 if(v310.includes("if(selectedIso){selectedForecastTime=selectedIso;forecastViewportTime=selectedIso;}"))
   ok("v3.10 card selection locks timestamp");
 else fail("v3.10 card selection does not lock timestamp");
+
+const v311=fs.existsSync("wind-wave-learned-surface-v311/index.html")
+  ?fs.readFileSync("wind-wave-learned-surface-v311/index.html","utf8"):"";
+const requiredV311=[
+  ["v3.11 badge",'class="versionBadge">v3.11'],
+  ["precision time flag","const keepForecastTime=!!selectedForecastTime"],
+  ["precision invalidate keeps time","invalidateForecast(keepForecastTime)"],
+  ["precision selected refresh","if(keepForecastTime)refreshSelectedForecast()"],
+  ["precision current fallback","else refreshData()"],
+  ["precision time disclosure","精密地表風」を押しても、その選択日時を維持"]
+];
+for(const [label,needle] of requiredV311){
+  if(v311.includes(needle))ok(label); else fail(label+" missing");
+}
+const pStart=v311.indexOf("function activatePrecisionSurface(){");
+const pEnd=v311.indexOf("\n}",pStart)+2;
+const pBlock=pStart>=0&&pEnd>pStart?v311.slice(pStart,pEnd):"";
+if(pBlock&&!pBlock.includes("invalidateForecast();")&&pBlock.includes("invalidateForecast(keepForecastTime)"))
+  ok("v3.11 precision activation no longer clears selected timestamp");
+else fail("v3.11 precision activation still clears selected timestamp");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
