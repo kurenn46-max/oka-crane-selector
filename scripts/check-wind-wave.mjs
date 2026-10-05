@@ -256,8 +256,8 @@ else fail("v3.5 direction sector count "+sectors.size);
 
 const example10m=6;
 const terrainFactor=.8;
-const heightFactor=.7;
-const example2m=example10m*terrainFactor*heightFactor;
+const exampleHeightFactor=.7;
+const example2m=example10m*terrainFactor*exampleHeightFactor;
 if(example2m>0&&example2m<example10m)ok("v3.5 forecast 10m→surface chain");
 else fail("v3.5 forecast surface chain invalid");
 
