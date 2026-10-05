@@ -1,0 +1,49 @@
+
+let surfaceForecastValues=[];
+function surfaceSector(dir){
+  if(!Number.isFinite(dir))return null;
+  return (Math.round((((dir%360)+360)%360)/22.5)%16)*22.5;
+}
+async function buildCenterSurfaceForecast(hourly){
+  const speeds=hourly&&hourly.wind_speed_10m||[];
+  const dirs=hourly&&hourly.wind_direction_10m||[];
+  const sectors=[...new Set(dirs.map(surfaceSector).filter(Number.isFinite))];
+  const profiles=new Map();
+  let cursor=0;
+  const workers=Math.min(4,sectors.length||1);
+  await Promise.all(Array.from({length:workers},async()=>{
+    while(true){
+      const i=cursor++;
+      if(i>=sectors.length)return;
+      const dir=sectors[i];
+      const p=await terrainAdjustPoint(
+        {lat:center.lat,lng:center.lng},
+        {speed:1,dir},
+        {skipCalibration:true}
+      );
+      profiles.set(dir,p);
+    }
+  }));
+  surfaceForecastValues=speeds.map((sp,i)=>{
+    const dir=dirs[i],sector=surfaceSector(dir),p=profiles.get(sector);
+    if(!Number.isFinite(sp)||!Number.isFinite(dir)||!p||!Number.isFinite(p.rawSurfaceSpeed))return null;
+    const rawSpeed=sp*p.rawSurfaceSpeed;
+    const rawDir=p.rawSurfaceDir;
+    const learned=learnedCorrection({lat:center.lat,lng:center.lng},rawDir,rawSpeed);
+    return{
+      speed:applyLearnedSpeed(rawSpeed,learned),
+      dir:wrapWindDir(rawDir+learned.dirOffset),
+      rawSpeed,rawDir,
+      confidence:p.confidence,
+      sector,
+      terrainFactor:p.factor,
+      terrainTurn:p.terrainTurn,
+      heightFactor:p.heightFactor,
+      learningN:learned.n
+    };
+  });
+  return surfaceForecastValues;
+}
+function surfaceForecastAt(i){
+  return surfaceForecastValues[i]||null;
+}
