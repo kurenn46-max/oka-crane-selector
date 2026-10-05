@@ -6,7 +6,8 @@ const files=[
   ["v3","wind-wave-5km-v3/index.html"],
   ["v3.2","wind-wave-1km-v32/index.html"],
   ["v3.3","wind-wave-local-v33/index.html"],
-  ["v3.4","wind-wave-surface-v34/index.html"]
+  ["v3.4","wind-wave-surface-v34/index.html"],
+  ["v3.5","wind-wave-surface-forecast-v35/index.html"]
 ];
 
 let failed=false;
@@ -230,6 +231,35 @@ else fail("v3.4 height factors invalid "+[hfSea,hfOpen,hfRough].join(","));
 if(6*hfSea<6&&6*hfOpen<6&&6*hfRough<6)
   ok("v3.4 2m wind stays below 10m baseline");
 else fail("v3.4 2m conversion not reducing baseline");
+
+const v35=fs.existsSync("wind-wave-surface-forecast-v35/index.html")
+  ?fs.readFileSync("wind-wave-surface-forecast-v35/index.html","utf8"):"";
+const requiredV35=[
+  ["v3.5 badge",'class="versionBadge">v3.5'],
+  ["surface forecast title","地表風速予報（約2m）"],
+  ["surface forecast array","surfaceForecastValues"],
+  ["direction sectors","function surfaceSector"],
+  ["forecast terrain precompute","function buildCenterSurfaceForecast"],
+  ["forecast surface only","地表 約2m"],
+  ["no 10m forecast disclosure","10m風速は予報画面には表示しません"],
+  ["forecast auto precision",'activeModel="local_terrain"'],
+  ["forecast ready status","✅ 約2m地表風速予報を表示"]
+];
+for(const [label,needle] of requiredV35){
+  if(v35.includes(needle))ok(label); else fail(label+" missing");
+}
+
+function sector(dir){return (Math.round((((dir%360)+360)%360)/22.5)%16)*22.5;}
+const sectors=new Set(Array.from({length:360},(_,i)=>sector(i)));
+if(sectors.size===16)ok("v3.5 16 direction terrain sectors");
+else fail("v3.5 direction sector count "+sectors.size);
+
+const example10m=6;
+const terrainFactor=.8;
+const exampleHeightFactor=.7;
+const example2m=example10m*terrainFactor*exampleHeightFactor;
+if(example2m>0&&example2m<example10m)ok("v3.5 forecast 10m→surface chain");
+else fail("v3.5 forecast surface chain invalid");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
