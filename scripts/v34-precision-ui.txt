@@ -1,0 +1,22 @@
+function updatePrecisionUI(){
+  const on=!!modelInfo().localTerrain;
+  $("precisionBtn").classList.toggle("active",on);
+  $("precisionBtn").textContent=on?"🎯 精密地表風 ON":"🎯 精密地表風";
+  $("windLabel").textContent=on?"地表風（約2m）":"中心の風";
+  $("gustLabel").textContent=on?"計算信頼度":"最大瞬間";
+  $("gustSub").textContent=on?"DEM＋地表粗度補正":"10m高度";
+}
+function activatePrecisionSurface(){
+  invalidateLocationRequests();
+  invalidateLiveRequests();
+  invalidateForecast();
+  closeForecastPanel();
+  activeModel="local_terrain";
+  $("modelSelect").value=activeModel;
+  compareMode=false;
+  if(zoom<15)zoom=15;
+  updateModelUI();
+  updateCompareButton();
+  renderMap();
+  refreshData();
+}
