@@ -1,7 +1,7 @@
 name: Deploy GitHub Pages
 on:
   push:
-    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc"]
+    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +22,8 @@ jobs:
         run: node scripts/build-wind-wave-v34.mjs
       - name: Build Wind & Wave V3.5
         run: node scripts/build-wind-wave-v35.mjs
+      - name: Build Wind & Wave V3.6
+        run: node scripts/build-wind-wave-v36.mjs
       - name: Smoke test Wind & Wave
         run: node scripts/check-wind-wave.mjs
 
@@ -41,6 +43,8 @@ jobs:
         run: node scripts/build-wind-wave-v34.mjs
       - name: Build Wind & Wave V3.5
         run: node scripts/build-wind-wave-v35.mjs
+      - name: Build Wind & Wave V3.6
+        run: node scripts/build-wind-wave-v36.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Cache JMA tide tables
