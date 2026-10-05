@@ -1,0 +1,259 @@
+
+const SURFACE_LEARN_KEY="oka_surface_learning_v38";
+const PRECISION_MODEL_KEYS=["jma_msm","best_match","ecmwf_ifs"];
+let surfaceLearningCache=null;
+
+function wrapWindDir(d){return((d%360)+360)%360}
+function signedWindDiff(a,b){return((a-b+540)%360)-180}
+
+function loadSurfaceLearning(){
+  if(surfaceLearningCache)return surfaceLearningCache;
+  let data={version:1,observations:[]};
+  try{
+    const raw=localStorage.getItem(SURFACE_LEARN_KEY);
+    const parsed=raw?JSON.parse(raw):null;
+    if(parsed&&Array.isArray(parsed.observations))data={version:1,observations:parsed.observations.slice(-80)};
+  }catch(_){}
+  surfaceLearningCache=data;
+  return data;
+}
+function saveSurfaceLearning(data){
+  surfaceLearningCache={version:1,observations:(data&&data.observations||[]).slice(-80)};
+  try{localStorage.setItem(SURFACE_LEARN_KEY,JSON.stringify(surfaceLearningCache));}catch(_){}
+}
+function surfaceLearningNearbyCount(p=center){
+  return loadSurfaceLearning().observations.filter(o=>
+    Number.isFinite(o.lat)&&Number.isFinite(o.lng)&&hav(p,o)<=1.5
+  ).length;
+}
+function learningMatches(p,dir){
+  const now=Date.now();
+  return loadSurfaceLearning().observations.map(o=>{
+    if(!Number.isFinite(o.lat)||!Number.isFinite(o.lng)||!Number.isFinite(o.predDir))return null;
+    const distance=hav(p,o);
+    if(distance>1.5)return null;
+    const ad=angleDiff(dir,o.predDir);
+    if(ad>60)return null;
+    const ageDays=Math.max(0,(now-(Number(o.time)||now))/86400000);
+    const w=Math.exp(-distance/.65)*Math.exp(-ad/38)*Math.exp(-ageDays/60);
+    return{...o,_w:w,_distance:distance,_angle:ad};
+  }).filter(Boolean).sort((a,b)=>b._w-a._w).slice(0,30);
+}
+function learnedCorrection(p,dir,speed){
+  const m=learningMatches(p,dir);
+  if(!m.length)return{factor:1,add:0,dirOffset:0,n:0,weight:0};
+  let sw=0,sr=0,sd=0,sdo=0,sdw=0;
+  for(const o of m){
+    const w=o._w;
+    sw+=w;
+    if(Number.isFinite(o.obsSpeed)&&Number.isFinite(o.predSpeed)&&o.predSpeed>.3){
+      sr+=w*clamp(o.obsSpeed/o.predSpeed,.55,1.55);
+      sd+=w*clamp(o.obsSpeed-o.predSpeed,-4,4);
+    }
+    if(Number.isFinite(o.obsDir)){
+      sdo+=w*clamp(signedWindDiff(o.obsDir,o.predDir),-45,45);
+      sdw+=w;
+    }
+  }
+  if(sw<=0)return{factor:1,add:0,dirOffset:0,n:0,weight:0};
+  const shrink=clamp(sw/(sw+2.0),0,.82);
+  const meanRatio=sr/sw||1;
+  const meanDelta=sd/sw||0;
+  const factor=1+(meanRatio-1)*shrink;
+  const add=meanDelta*shrink;
+  const dirOffset=sdw>0?clamp((sdo/sdw)*shrink,-20,20):0;
+  return{factor:clamp(factor,.72,1.28),add:clamp(add,-1.8,1.8),dirOffset,n:m.length,weight:sw};
+}
+function applyLearnedSpeed(speed,c){
+  if(!Number.isFinite(speed))return speed;
+  if(!c||!c.n)return speed;
+  if(speed<2)return Math.max(0,speed+c.add);
+  return Math.max(0,speed*c.factor);
+}
+function precisionModelWeights(p,dir){
+  const prior={jma_msm:.72,best_match:.20,ecmwf_ifs:.08};
+  const m=learningMatches(p,dir).filter(o=>o.models&&typeof o.models==="object");
+  if(!m.length)return{...prior,_n:0,_weight:0};
+  const scores={};
+  let totalWeight=0;
+  for(const key of PRECISION_MODEL_KEYS){
+    let sw=0,se=0;
+    for(const o of m){
+      const x=o.models[key];
+      if(!x||!Number.isFinite(x.errSpeed))continue;
+      const w=o._w;
+      const dirPenalty=Number.isFinite(x.errDir)?Math.min(90,x.errDir)/90*.8:0;
+      se+=w*(x.errSpeed+dirPenalty);
+      sw+=w;
+    }
+    if(sw>0){scores[key]=se/sw;totalWeight=Math.max(totalWeight,sw);}
+  }
+  if(!Object.keys(scores).length)return{...prior,_n:m.length,_weight:0};
+  let invSum=0;
+  const learned={};
+  for(const key of PRECISION_MODEL_KEYS){
+    const sc=Number.isFinite(scores[key])?scores[key]:2.5;
+    learned[key]=1/Math.pow(sc+.35,2);
+    invSum+=learned[key];
+  }
+  for(const key of PRECISION_MODEL_KEYS)learned[key]/=invSum||1;
+  const alpha=clamp(totalWeight/(totalWeight+2.5),0,.80);
+  const out={_n:m.length,_weight:totalWeight};
+  let sum=0;
+  for(const key of PRECISION_MODEL_KEYS){
+    out[key]=(1-alpha)*prior[key]+alpha*learned[key];
+    sum+=out[key];
+  }
+  for(const key of PRECISION_MODEL_KEYS)out[key]/=sum||1;
+  return out;
+}
+function normalizeModelWeights(weights,available){
+  const out={};let sum=0;
+  for(const key of available){
+    const w=Math.max(0,Number(weights&&weights[key])||0);
+    out[key]=w;sum+=w;
+  }
+  if(sum<=0){
+    available.forEach((key,i)=>out[key]=i===0?1:0);
+    return out;
+  }
+  available.forEach(key=>out[key]/=sum);
+  return out;
+}
+async function fetchPrecisionModel(ps,key,mode,iso=null,hours=96){
+  const m=MODEL_INFO[key]||MODEL_INFO.jma_msm;
+  const u=new URL("https://api.open-meteo.com/v1/forecast");
+  u.searchParams.set("latitude",ps.map(p=>p.lat.toFixed(5)).join(","));
+  u.searchParams.set("longitude",ps.map(p=>p.lng.toFixed(5)).join(","));
+  if(mode==="current"){
+    u.searchParams.set("current","wind_speed_10m,wind_direction_10m");
+    u.searchParams.set("hourly","wind_speed_10m,wind_direction_10m");
+    u.searchParams.set("forecast_hours","1");
+  }else{
+    u.searchParams.set("hourly","wind_speed_10m,wind_direction_10m");
+    if(mode==="time"){
+      u.searchParams.set("start_hour",iso);
+      u.searchParams.set("end_hour",iso);
+    }else{
+      u.searchParams.set("forecast_hours",String(hours));
+    }
+  }
+  u.searchParams.set("models",m.param);
+  u.searchParams.set("wind_speed_unit","ms");
+  u.searchParams.set("timezone","auto");
+  const r=await fetchWithTimeout(u,{},14000);
+  if(!r.ok)throw new Error(m.label+" "+r.status);
+  const d=await r.json();
+  return Array.isArray(d)?d:[d];
+}
+async function precisionModelSets(ps,mode,iso=null,hours=96){
+  const settled=await Promise.all(PRECISION_MODEL_KEYS.map(async key=>{
+    try{return{key,rows:await fetchPrecisionModel(ps,key,mode,iso,hours)}}catch(_){return null}
+  }));
+  const sets=settled.filter(Boolean);
+  if(!sets.length)throw new Error("精密風モデルを取得できません");
+  return sets;
+}
+function blendWindValues(values,weights){
+  let su=0,sv=0,sw=0;
+  for(const x of values){
+    if(!Number.isFinite(x.speed)||!Number.isFinite(x.dir))continue;
+    const w=Number(weights[x.key])||0,uv=windVector(x.speed,x.dir);
+    if(!uv||w<=0)continue;
+    su+=uv.u*w;sv+=uv.v*w;sw+=w;
+  }
+  return sw>0?vectorWind(su/sw,sv/sw):{speed:null,dir:null};
+}
+function modelValueAtRow(row,preferCurrent,index=0){
+  const c=row&&row.current||{},h=row&&row.hourly||{};
+  if(preferCurrent&&Number.isFinite(c.wind_speed_10m)&&Number.isFinite(c.wind_direction_10m)){
+    return{speed:c.wind_speed_10m,dir:c.wind_direction_10m,time:c.time||null};
+  }
+  return{
+    speed:h.wind_speed_10m&&h.wind_speed_10m[index],
+    dir:h.wind_direction_10m&&h.wind_direction_10m[index],
+    time:h.time&&h.time[index]
+  };
+}
+function blendPrecisionRows(sets,ps,preferCurrent){
+  return ps.map((p,i)=>{
+    const baseSet=sets.find(x=>x.key==="jma_msm")||sets[0];
+    const base=modelValueAtRow(baseSet.rows[i]||{},preferCurrent,0);
+    const learned=precisionModelWeights(p,Number.isFinite(base.dir)?base.dir:0);
+    const available=sets.map(x=>x.key);
+    const weights=normalizeModelWeights(learned,available);
+    const values=sets.map(x=>({key:x.key,...modelValueAtRow(x.rows[i]||{},preferCurrent,0)}));
+    const b=blendWindValues(values,weights);
+    const time=(values.find(x=>x.time)||{}).time||null;
+    return{
+      current:{time,wind_speed_10m:b.speed,wind_direction_10m:b.dir},
+      hourly:{time:[time],wind_speed_10m:[b.speed],wind_direction_10m:[b.dir]},
+      precisionWeights:weights
+    };
+  });
+}
+function blendPrecisionForecastRows(sets,ps){
+  return ps.map((p,pi)=>{
+    const baseSet=sets.find(x=>x.key==="jma_msm")||sets[0];
+    const bh=baseSet.rows[pi]&&baseSet.rows[pi].hourly||{};
+    const times=bh.time||[];
+    const speeds=[],dirs=[];
+    for(let i=0;i<times.length;i++){
+      const base=modelValueAtRow(baseSet.rows[pi]||{},false,i);
+      const learned=precisionModelWeights(p,Number.isFinite(base.dir)?base.dir:0);
+      const available=sets.map(x=>x.key);
+      const weights=normalizeModelWeights(learned,available);
+      const values=sets.map(x=>({key:x.key,...modelValueAtRow(x.rows[pi]||{},false,i)}));
+      const b=blendWindValues(values,weights);
+      speeds.push(b.speed);dirs.push(b.dir);
+    }
+    return{hourly:{time:times,wind_speed_10m:speeds,wind_direction_10m:dirs}};
+  });
+}
+async function getPrecisionWind(ps){
+  const sets=await precisionModelSets(ps,"current");
+  return blendPrecisionRows(sets,ps,true);
+}
+async function getPrecisionWindAtTime(ps,iso){
+  const sets=await precisionModelSets(ps,"time",iso,1);
+  return blendPrecisionRows(sets,ps,false);
+}
+async function getPrecisionWindForecast(ps){
+  const sets=await precisionModelSets(ps,"forecast",null,96);
+  return blendPrecisionForecastRows(sets,ps);
+}
+async function recordSurfaceObservation(obsSpeed,obsDir){
+  const cc=windSamples.find(x=>x.isCenter)||windSamples[0];
+  if(!cc||!Number.isFinite(cc.rawSurfaceSpeed)||!Number.isFinite(cc.rawSurfaceDir)){
+    throw new Error("先に精密地表風を更新してください");
+  }
+  const p={lat:center.lat,lng:center.lng};
+  const sets=await precisionModelSets([p],"current");
+  const models={};
+  for(const set of sets){
+    const base=modelValueAtRow(set.rows[0]||{},true,0);
+    if(!Number.isFinite(base.speed)||!Number.isFinite(base.dir))continue;
+    const local=await terrainAdjustPoint(p,base,{skipCalibration:true});
+    models[set.key]={
+      speed:local.speed,dir:local.dir,
+      errSpeed:Math.abs(local.speed-obsSpeed),
+      errDir:Number.isFinite(obsDir)?angleDiff(local.dir,obsDir):null
+    };
+  }
+  const data=loadSurfaceLearning();
+  data.observations.push({
+    lat:p.lat,lng:p.lng,time:Date.now(),
+    predSpeed:cc.rawSurfaceSpeed,predDir:cc.rawSurfaceDir,
+    obsSpeed,obsDir:Number.isFinite(obsDir)?wrapWindDir(obsDir):null,
+    models
+  });
+  saveSurfaceLearning(data);
+  return data.observations.length;
+}
+function clearSurfaceLearningNear(p=center){
+  const data=loadSurfaceLearning();
+  const before=data.observations.length;
+  data.observations=data.observations.filter(o=>!(Number.isFinite(o.lat)&&Number.isFinite(o.lng)&&hav(p,o)<=1.5));
+  saveSurfaceLearning(data);
+  return before-data.observations.length;
+}
