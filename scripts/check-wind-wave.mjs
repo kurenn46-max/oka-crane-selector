@@ -4,7 +4,8 @@ const files=[
   ["v1","wind-wave-5km/index.html"],
   ["v2","wind-wave-5km-v2/index.html"],
   ["v3","wind-wave-5km-v3/index.html"],
-  ["v3.2","wind-wave-1km-v32/index.html"]
+  ["v3.2","wind-wave-1km-v32/index.html"],
+  ["v3.3","wind-wave-local-v33/index.html"]
 ];
 
 let failed=false;
@@ -113,6 +114,89 @@ async function smokeDenseApi(){
 }
 
 await smokeDenseApi();
+
+const v33=fs.existsSync("wind-wave-local-v33/index.html")
+  ?fs.readFileSync("wind-wave-local-v33/index.html","utf8"):"";
+const requiredV33=[
+  ["v3.3 badge",'class="versionBadge">v3.3'],
+  ["local terrain model",'value="local_terrain"'],
+  ["100m local grid","function localGridPoints"],
+  ["1km radius cutoff","Math.hypot(xKm,yKm)>radiusKm"],
+  ["9-point wind anchors","function localWindAnchors"],
+  ["GSI DEM5A","dem5a_png"],
+  ["GSI DEM fallback","dem_png"],
+  ["terrain shelter","function terrainShelterFactor"],
+  ["terrain ridge","function terrainRidgeFactor"],
+  ["terrain channel","function terrainChannelFactor"],
+  ["terrain correction","function terrainAdjustPoint"],
+  ["adaptive display","function localRenderStride"],
+  ["local range circle","modelInfo().localTerrain?1000:5000"],
+  ["estimate marker",'prefix=x.estimated?"≈":""'],
+  ["local current refresh","refreshLocalCurrent"],
+  ["local forecast refresh","refreshLocalSelected"],
+  ["local disclosure","100m気象モデルやLFM直結ではありません"]
+];
+for(const [label,needle] of requiredV33){
+  if(v33.includes(needle))ok(label); else fail(label+" missing");
+}
+
+function localGridCount(step=.1,radius=1){
+  const n=Math.round(radius/step);let count=1;
+  for(let iy=-n;iy<=n;iy++)for(let ix=-n;ix<=n;ix++){
+    if(ix===0&&iy===0)continue;
+    if(Math.hypot(ix*step,iy*step)<=radius+.0001)count++;
+  }
+  return count;
+}
+const gcount=localGridCount();
+if(gcount===317)ok("v3.3 100m / 1km grid = 317 points");
+else fail("v3.3 local grid count "+gcount+" / expected 317");
+
+function tileXY(lat,lng,z){
+  const n=2**z,rad=lat*Math.PI/180;
+  return{
+    x:Math.floor((lng+180)/360*n),
+    y:Math.floor((1-Math.asinh(Math.tan(rad))/Math.PI)/2*n)
+  };
+}
+async function smokeLocalSources(){
+  const c={lat:35.49,lng:135.74};
+  const anchors=[c];
+  const latStep=1/111.32,lngStep=1/(111.32*Math.cos(c.lat*Math.PI/180));
+  for(const y of [-1,0,1])for(const x of [-1,0,1]){
+    if(x===0&&y===0)continue;
+    anchors.push({lat:c.lat+y*latStep,lng:c.lng+x*lngStep});
+  }
+  try{
+    const u=new URL("https://api.open-meteo.com/v1/forecast");
+    u.searchParams.set("latitude",anchors.map(p=>p.lat.toFixed(5)).join(","));
+    u.searchParams.set("longitude",anchors.map(p=>p.lng.toFixed(5)).join(","));
+    u.searchParams.set("hourly","wind_speed_10m,wind_direction_10m");
+    u.searchParams.set("forecast_hours","1");
+    u.searchParams.set("models","jma_msm");
+    u.searchParams.set("wind_speed_unit","ms");
+    u.searchParams.set("timezone","Asia/Tokyo");
+    const r=await fetch(u,{signal:AbortSignal.timeout(15000)});
+    if(!r.ok)throw new Error("MSM HTTP "+r.status);
+    const d=await r.json(),rows=Array.isArray(d)?d:[d];
+    if(rows.length!==9)throw new Error("MSM rows "+rows.length+" / 9");
+    const valid=rows.filter(x=>Number.isFinite(x?.hourly?.wind_speed_10m?.[0])&&Number.isFinite(x?.hourly?.wind_direction_10m?.[0])).length;
+    if(valid!==9)throw new Error("MSM valid "+valid+" / 9");
+    ok("v3.3 JMA MSM 9-anchor live API");
+  }catch(e){fail("v3.3 MSM anchor API: "+e.message);}
+
+  try{
+    const p=tileXY(c.lat,c.lng,14);
+    const u="https://cyberjapandata.gsi.go.jp/xyz/dem_png/14/"+p.x+"/"+p.y+".png";
+    const r=await fetch(u,{signal:AbortSignal.timeout(15000)});
+    if(!r.ok)throw new Error("GSI HTTP "+r.status);
+    const ab=await r.arrayBuffer();
+    if(ab.byteLength<100)throw new Error("GSI PNG too small "+ab.byteLength);
+    ok("v3.3 GSI DEM10B live tile ("+ab.byteLength+" bytes)");
+  }catch(e){fail("v3.3 GSI DEM tile: "+e.message);}
+}
+await smokeLocalSources();
+
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
