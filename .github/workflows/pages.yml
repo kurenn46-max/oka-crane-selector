@@ -1,7 +1,7 @@
 name: Deploy GitHub Pages
 on:
   push:
-    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc", "wind-wave-v38-rc", "wind-wave-v39-rc"]
+    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc", "wind-wave-v38-rc", "wind-wave-v39-rc", "wind-wave-v310-rc"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,6 +30,8 @@ jobs:
         run: node scripts/build-wind-wave-v38.mjs
       - name: Build Wind & Wave V3.9
         run: node scripts/build-wind-wave-v39.mjs
+      - name: Build Wind & Wave V3.10
+        run: node scripts/build-wind-wave-v310.mjs
       - name: Smoke test Wind & Wave
         run: node scripts/check-wind-wave.mjs
       - name: Install browser test runtime
@@ -42,6 +44,8 @@ jobs:
         run: node scripts/e2e-wind-wave-v38.mjs
       - name: Browser interaction test V3.9
         run: node scripts/e2e-wind-wave-v39.mjs
+      - name: Browser interaction test V3.10
+        run: node scripts/e2e-wind-wave-v310.mjs
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -67,6 +71,8 @@ jobs:
         run: node scripts/build-wind-wave-v38.mjs
       - name: Build Wind & Wave V3.9
         run: node scripts/build-wind-wave-v39.mjs
+      - name: Build Wind & Wave V3.10
+        run: node scripts/build-wind-wave-v310.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Cache JMA tide tables
