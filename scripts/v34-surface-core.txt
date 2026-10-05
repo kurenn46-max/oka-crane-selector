@@ -1,0 +1,118 @@
+
+function terrainShelterFactor(angleDeg){
+  if(!Number.isFinite(angleDeg)||angleDeg<=3)return 1;
+  return clamp(1-(angleDeg-3)*.018,.52,1);
+}
+function terrainRidgeFactor(prominenceM){
+  if(!Number.isFinite(prominenceM)||prominenceM<=25)return 1;
+  return 1+clamp((prominenceM-25)/220*.10,0,.10);
+}
+function terrainChannelFactor(leftRise,rightRise){
+  const m=Math.min(leftRise,rightRise);
+  if(!Number.isFinite(m)||m<=35)return 1;
+  return 1+clamp((m-35)/260*.06,0,.06);
+}
+function surfaceRoughnessProfile(source,relief){
+  if(source==="海面/無効")return{z0:.0002,label:"海面相当"};
+  if(relief<=8)return{z0:.03,label:"開放地相当"};
+  if(relief<=30)return{z0:.10,label:"粗地相当"};
+  return{z0:.30,label:"高粗度地形相当"};
+}
+function neutralHeightFactor(z0,z=2,ref=10){
+  const zz=Math.max(.2,z),rr=Math.max(zz+.1,ref),rough=clamp(z0,.0001,1);
+  const a=Math.log((zz+rough)/rough),b=Math.log((rr+rough)/rough);
+  return clamp(a/b,.45,.92);
+}
+function surfaceConfidence(source,terrainFactor,shelterAngle,relief){
+  let c=.72;
+  if(/^DEM5/.test(source))c+=.10;
+  else if(source==="DEM10B")c+=.05;
+  else c-=.08;
+  const d=Math.abs(terrainFactor-1);
+  if(d<.15)c+=.05;
+  else if(d>.35)c-=.08;
+  if(shelterAngle>25)c-=.05;
+  if(relief>80)c-=.05;
+  return clamp(c,.50,.90);
+}
+async function terrainAdjustPoint(p,base){
+  if(!Number.isFinite(base.speed)||!Number.isFinite(base.dir))return{...base,factor:1};
+  const here=await elevationAt(p.lat,p.lng),e0=here.elev,up=[];
+  let maxAngle=0;
+  for(const d of [.2,.4,.7,1]){
+    const q=dest(p.lat,p.lng,d,base.dir),z=await elevationAt(q.lat,q.lng);
+    up.push(z.elev);
+    const dz=z.elev-e0;
+    if(dz>0)maxAngle=Math.max(maxAngle,Math.atan2(dz,d*1000)*180/Math.PI);
+  }
+  const qd=dest(p.lat,p.lng,.3,(base.dir+180)%360);
+  const ql=dest(p.lat,p.lng,.3,(base.dir+90)%360);
+  const qr=dest(p.lat,p.lng,.3,(base.dir+270)%360);
+  const [down,left,right]=await Promise.all([
+    elevationAt(qd.lat,qd.lng),
+    elevationAt(ql.lat,ql.lng),
+    elevationAt(qr.lat,qr.lng)
+  ]);
+
+  const prominence=e0-((up[0]??e0)+down.elev)/2;
+  const terrainFactor=clamp(
+    terrainShelterFactor(maxAngle)*
+    terrainRidgeFactor(prominence)*
+    terrainChannelFactor(left.elev-e0,right.elev-e0),
+    .45,1.18
+  );
+
+  const nearby=[e0,...up,down.elev,left.elev,right.elev].filter(Number.isFinite);
+  const relief=nearby.length?Math.max(...nearby)-Math.min(...nearby):0;
+  const rough=surfaceRoughnessProfile(here.source,relief);
+  const heightFactor=neutralHeightFactor(rough.z0,2,10);
+  const speed10Terrain=base.speed*terrainFactor;
+  const speed2m=speed10Terrain*heightFactor;
+  const confidence=surfaceConfidence(here.source,terrainFactor,maxAngle,relief);
+
+  return{
+    speed:speed2m,
+    dir:base.dir,
+    factor:terrainFactor,
+    heightFactor,
+    speed10Terrain,
+    roughnessZ0:rough.z0,
+    roughnessLabel:rough.label,
+    confidence,
+    relief,
+    shelterAngle:maxAngle,
+    elevation:e0,
+    terrainSource:here.source
+  };
+}
+async function buildLocalSurfaceSamples(rows,anchors,preferCurrent){
+  const aw=buildAnchorWind(rows,anchors,preferCurrent),grid=localGridPoints(.1,1),out=new Array(grid.length);
+  let cursor=0;
+  const workers=Math.min(10,grid.length);
+  await Promise.all(Array.from({length:workers},async()=>{
+    while(true){
+      const i=cursor++;
+      if(i>=grid.length)return;
+      const p=grid[i],base=interpolateAnchorWind(aw,p),adj=await terrainAdjustPoint(p,base);
+      out[i]={...p,...adj,estimated:true,compareLevel:""};
+    }
+  }));
+  const c=out.find(x=>x.isCenter)||out[0];
+  localSurfaceMeta={
+    centerFactor:Number.isFinite(c&&c.factor)?c.factor:1,
+    centerHeightFactor:Number.isFinite(c&&c.heightFactor)?c.heightFactor:1,
+    centerConfidence:Number.isFinite(c&&c.confidence)?c.confidence:.5,
+    centerRoughness:(c&&c.roughnessLabel)||"",
+    centerAngle:Number.isFinite(c&&c.shelterAngle)?c.shelterAngle:0,
+    centerElevation:Number.isFinite(c&&c.elevation)?c.elevation:null,
+    computed:out.length,
+    terrainSource:(c&&c.terrainSource)||""
+  };
+  return out;
+}
+function localRenderStride(){return zoom>=16?1:zoom===15?2:zoom===14?3:4;}
+function rangeLabel(){
+  if(modelInfo().localTerrain)return"精密地表風";
+  if(modelInfo().dense1km)return"1km間隔";
+  return"青円5km";
+}

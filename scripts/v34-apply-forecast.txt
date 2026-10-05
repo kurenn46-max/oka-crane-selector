@@ -1,0 +1,40 @@
+function applyForecastHour(i,scrollCard){
+  if(!forecastRows.length)return;
+  forecastIndex=i;
+  const h=forecastRows[0].hourly||{};
+  const selectedIso=h.time&&h.time[i];
+  if(selectedIso)selectedForecastTime=selectedIso;
+
+  const sp=h.wind_speed_10m&&h.wind_speed_10m[i];
+  const di=h.wind_direction_10m&&h.wind_direction_10m[i];
+  const gu=h.wind_gusts_10m&&h.wind_gusts_10m[i];
+
+  if(modelInfo().localTerrain){
+    $("wind").textContent="計算中";
+    $("windDir").textContent=Number.isFinite(di)?compass(di)+"から":"地表風を再計算";
+    $("gust").textContent="--";
+  }else{
+    $("wind").textContent=Number.isFinite(sp)?sp.toFixed(1)+" m/s":"-- m/s";
+    $("windDir").textContent=Number.isFinite(di)?compass(di)+"から":"--";
+    $("gust").textContent=modelInfo().gust?(Number.isFinite(gu)?gu.toFixed(1)+" m/s":"-- m/s"):"提供なし";
+  }
+
+  const w=waveForecastAt(i);
+  $("wave").textContent=w&&Number.isFinite(w.h)?w.h.toFixed(1)+" m":"海域外";
+  $("period").textContent=w&&Number.isFinite(w.period)
+    ?("周期 "+w.period.toFixed(1)+" s / "+marineTrustLabel(w.seaDistance)+" "+w.seaDistance.toFixed(0)+"km")
+    :"周期 -- s";
+
+  windSamples=[];
+  renderWindMarkers();
+  document.querySelectorAll(".hourCard").forEach(el=>el.classList.toggle("active",Number(el.dataset.index)===i));
+  setStatus(modelInfo().localTerrain
+    ?("予報："+forecastTimeLabel(selectedIso,i)+"　約2m地表風を精密計算中…")
+    :("予報："+forecastTimeLabel(selectedIso,i)+"　"+(modelInfo().dense1km?"1km間隔49地点":"5km分布")+"を取得中…"));
+  refreshSelectedForecast();
+
+  if(scrollCard){
+    const card=document.querySelector('.hourCard[data-index="'+i+'"]');
+    if(card)card.scrollIntoView({behavior:"auto",inline:"nearest",block:"nearest"});
+  }
+}

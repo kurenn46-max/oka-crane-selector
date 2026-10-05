@@ -1,0 +1,30 @@
+function renderForecastList(){
+  const list=$("forecastList");
+  list.replaceChildren();
+  if(!forecastRows.length)return;
+  const h=forecastRows[0].hourly||{};
+  const total=Math.min(forecastRange,(h.time&&h.time.length)||0);
+  const surfaceMode=!!modelInfo().localTerrain;
+  for(let i=0;i<total;i++){
+    const sp=h.wind_speed_10m&&h.wind_speed_10m[i];
+    const di=h.wind_direction_10m&&h.wind_direction_10m[i];
+    const gu=h.wind_gusts_10m&&h.wind_gusts_10m[i];
+    const w=waveForecastAt(i);
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="hourCard"+(forecastIndex===i?" active":"");
+    b.dataset.index=String(i);
+    const windText=surfaceMode?"タップで計算":((Number.isFinite(sp)?sp.toFixed(1):"--")+" m/s");
+    const meta=surfaceMode
+      ?((Number.isFinite(di)?compass(di)+"から":"--")+"<br>約2m地表風を精密計算")
+      :((Number.isFinite(di)?compass(di)+"から":"--")+"<br>瞬 "+(modelInfo().gust?(Number.isFinite(gu)?gu.toFixed(1)+" m/s":"--"):"提供なし"));
+    b.innerHTML=
+      '<div class="hourTime">'+forecastTimeLabel(h.time&&h.time[i],i)+'</div>'+
+      '<div class="hourWind">'+windText+'</div>'+
+      '<div class="hourMeta">'+meta+
+      (w&&Number.isFinite(w.h)?'<br>波 '+w.h.toFixed(1)+' m'+(w.seaDistance>5?'（最寄海域）':''):'')+
+      '</div>';
+    b.addEventListener("click",()=>applyForecastHour(i,false));
+    list.appendChild(b);
+  }
+}
