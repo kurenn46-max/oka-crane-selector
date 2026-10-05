@@ -13,7 +13,8 @@ const files=[
   ["v3.8","wind-wave-learned-surface-v38/index.html"],
   ["v3.9","wind-wave-learned-surface-v39/index.html"],
   ["v3.10","wind-wave-learned-surface-v310/index.html"],
-  ["v3.11","wind-wave-learned-surface-v311/index.html"]
+  ["v3.11","wind-wave-learned-surface-v311/index.html"],
+  ["v3.12","wind-wave-learned-surface-v312/index.html"]
 ];
 
 let failed=false;
@@ -414,6 +415,41 @@ const pBlock=pStart>=0&&pEnd>pStart?v311.slice(pStart,pEnd):"";
 if(pBlock&&!pBlock.includes("invalidateForecast();")&&pBlock.includes("invalidateForecast(keepForecastTime)"))
   ok("v3.11 precision activation no longer clears selected timestamp");
 else fail("v3.11 precision activation still clears selected timestamp");
+
+const v312=fs.existsSync("wind-wave-learned-surface-v312/index.html")
+  ?fs.readFileSync("wind-wave-learned-surface-v312/index.html","utf8"):"";
+const requiredV312=[
+  ["v3.12 badge",'class="versionBadge">v3.12'],
+  ["surface seven-day horizon",'maxHours:168,gust:false,localTerrain:true'],
+  ["168h precision fetch",'precisionModelSets(ps,"forecast",null,168)'],
+  ["valid-value fallback","function precisionValidValues"],
+  ["model agreement score","function precisionAgreementScore"],
+  ["lead-time score","function precisionLeadScore"],
+  ["surface accuracy estimate","function surfaceForecastAccuracy"],
+  ["forecast accuracy field","accuracyPct"],
+  ["selected accuracy label","予報精度目安"],
+  ["long-range fallback disclosure","Best Match＋ECMWFへ自動継続"],
+  ["not hit-rate disclosure","的中率」ではなく"]
+];
+for(const [label,needle] of requiredV312){
+  if(v312.includes(needle))ok(label); else fail(label+" missing");
+}
+function leadScore(h){
+  if(h<=12)return .96;if(h<=24)return .92;if(h<=48)return .84;if(h<=72)return .75;
+  if(h<=96)return .66;if(h<=120)return .58;if(h<=144)return .50;return .42;
+}
+if(leadScore(24)>leadScore(72)&&leadScore(72)>leadScore(168))ok("v3.12 lead-time confidence decreases");
+else fail("v3.12 lead-time confidence order invalid");
+function accuracy(terrain,lead,source,agreement,learning=.5){
+  return Math.max(35,Math.min(92,Math.round(100*(terrain*.40+lead*.30+source*.15+agreement*.10+learning*.05))));
+}
+const nearAcc=accuracy(.8,leadScore(24),.96,.9);
+const farAcc=accuracy(.8,leadScore(168),.72,.8);
+if(nearAcc>farAcc&&farAcc>=35)ok("v3.12 long-range accuracy lower than near-term");
+else fail("v3.12 accuracy horizon penalty invalid "+nearAcc+"/"+farAcc);
+if(v312.includes('if(!available.includes("jma_msm")&&!(learned&&learned._weight>0))'))
+  ok("v3.12 no-JMA fallback path exists");
+else fail("v3.12 no-JMA fallback path missing");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
