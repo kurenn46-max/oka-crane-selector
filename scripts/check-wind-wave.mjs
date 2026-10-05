@@ -8,7 +8,8 @@ const files=[
   ["v3.3","wind-wave-local-v33/index.html"],
   ["v3.4","wind-wave-surface-v34/index.html"],
   ["v3.5","wind-wave-surface-forecast-v35/index.html"],
-  ["v3.6","wind-wave-layer-forecast-v36/index.html"]
+  ["v3.6","wind-wave-layer-forecast-v36/index.html"],
+  ["v3.7","wind-wave-layer-forecast-v37/index.html"]
 ];
 
 let failed=false;
@@ -284,6 +285,35 @@ else fail("v3.6 forecast button still forces local terrain");
 if(v36.includes('if(modelInfo().localTerrain)await buildCenterSurfaceForecast(hourly);\n    else surfaceForecastValues=[];'))
   ok("v3.6 surface forecast only for surface layer");
 else fail("v3.6 surface conditional forecast missing");
+
+const v37=fs.existsSync("wind-wave-layer-forecast-v37/index.html")
+  ?fs.readFileSync("wind-wave-layer-forecast-v37/index.html","utf8"):"";
+const requiredV37=[
+  ["v3.7 badge",'class="versionBadge">v3.7'],
+  ["upwind roughness","function surfaceRoughnessProfile(hereSource,upwindSources,relief)"],
+  ["sea fetch threshold","seaShare>=.75"],
+  ["coastal transition","沿岸移行域"],
+  ["sea share metadata","centerSeaShare"],
+  ["double-count correction disclosure","二重に強く掛け過ぎないよう補正済み"]
+];
+for(const [label,needle] of requiredV37){
+  if(v37.includes(needle))ok(label); else fail(label+" missing");
+}
+function roughnessByFetch(share,relief=10){
+  if(share>=.75)return .0002;
+  if(share>=.40)return .005;
+  if(relief<=20)return .03;
+  if(relief<=80)return .05;
+  return .10;
+}
+if(roughnessByFetch(.9)<roughnessByFetch(.5)&&roughnessByFetch(.5)<roughnessByFetch(.1))
+  ok("v3.7 upwind sea fetch lowers roughness monotonically");
+else fail("v3.7 sea-fetch roughness order invalid");
+const fSea=heightFactor(roughnessByFetch(.9));
+const fCoast=heightFactor(roughnessByFetch(.5));
+const fLand=heightFactor(roughnessByFetch(.1));
+if(fSea>fCoast&&fCoast>fLand)ok("v3.7 sea→coast→land 2m factor order");
+else fail("v3.7 2m fetch conversion order invalid");
 
 if(failed)process.exit(1);
 console.log("Wind & Wave smoke checks passed");
