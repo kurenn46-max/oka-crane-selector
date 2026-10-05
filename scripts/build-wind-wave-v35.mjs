@@ -63,23 +63,23 @@ s=s.slice(0,applyStart)+apply+s.slice(applyEnd);
 const fbStart=s.indexOf('$("forecastBtn").addEventListener("click",()=>{');
 const fbEnd=s.indexOf('$("forecastClose").addEventListener',fbStart);
 if(fbStart<0||fbEnd<0)throw new Error("forecast button handler missing");
-const fb=['
-$("forecastBtn").addEventListener("click",()=>{
-  closeTidePanel();
-  if(!modelInfo().localTerrain){
-    invalidateLiveRequests();
-    activeModel="local_terrain";
-    $("modelSelect").value=activeModel;
-    compareMode=false;
-    if(zoom<15)zoom=15;
-    updateModelUI();
-    updateCompareButton();
-    renderMap();
-    invalidateForecast();
-  }
-  if(forecastRows.length){$("forecastPlace").textContent=placeName;openForecastPanel();renderForecastList();}
-  else loadForecast();
-});
+const fb=[
+  '$("forecastBtn").addEventListener("click",()=>{',
+  '  closeTidePanel();',
+  '  if(!modelInfo().localTerrain){',
+  '    invalidateLiveRequests();',
+  '    activeModel="local_terrain";',
+  '    $("modelSelect").value=activeModel;',
+  '    compareMode=false;',
+  '    if(zoom<15)zoom=15;',
+  '    updateModelUI();',
+  '    updateCompareButton();',
+  '    renderMap();',
+  '    invalidateForecast();',
+  '  }',
+  '  if(forecastRows.length){$("forecastPlace").textContent=placeName;openForecastPanel();renderForecastList();}',
+  '  else loadForecast();',
+  '});'
 ].join("\n");
 s=s.slice(0,fbStart)+fb+"\n"+s.slice(fbEnd);
 
