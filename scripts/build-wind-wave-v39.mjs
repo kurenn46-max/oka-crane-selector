@@ -9,7 +9,7 @@ rep("<title>OKA Learned Surface Wind v3.8</title>","<title>OKA Learned Surface W
 rep('<h1>OKA Learned Surface Wind <span class="versionBadge">v3.8</span></h1>\n<div class="sub">地形で風向を曲げ、現地実測から地点ごとに学習</div>',
     '<h1>OKA Learned Surface Wind <span class="versionBadge">v3.9</span></h1>\n<div class="sub">予報を送った時間をモデル変更後もそのまま保持</div>',"header");
 
-rep("let selectedForecastTime=null;","let selectedForecastTime=null;\nlet forecastViewportTime=null;\nlet forecastScrollRaf=null;","forecast viewport state");
+rep("let selectedForecastTime=null;","let selectedForecastTime=null;\nlet forecastViewportTime=null;\nlet forecastScrollRaf=null;","forecast viewport state");\n\nrep('function closeForecastPanel(){\n  $("forecastBackdrop").classList.remove("open");',\n    'function closeForecastPanel(){\n  if($("forecastPanel").classList.contains("open"))captureForecastViewport();\n  $("forecastBackdrop").classList.remove("open");',"capture on close");
 
 const viewportFns=lines([
   "function forecastViewportIndex(){",
