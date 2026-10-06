@@ -1,7 +1,7 @@
 name: Deploy GitHub Pages
 on:
   push:
-    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc", "wind-wave-v38-rc", "wind-wave-v39-rc", "wind-wave-v310-rc", "surface-wind-fix-v3-11", "surface-wind-v312-rc"]
+    branches: ["main", "wind-wave-v3-rc", "wind-wave-v33-rc", "wind-wave-v34-rc", "wind-wave-v35-rc", "wind-wave-v36-rc", "wind-wave-v37-rc", "wind-wave-v38-rc", "wind-wave-v39-rc", "wind-wave-v310-rc", "surface-wind-fix-v3-11", "surface-wind-v312-rc", "weather-lab-v1-rc"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,10 +38,14 @@ jobs:
         run: node scripts/build-wind-wave-v312.mjs
       - name: Smoke test Wind & Wave
         run: node scripts/check-wind-wave.mjs
+      - name: Smoke test OKA Weather Lab
+        run: node scripts/check-weather-lab.mjs
       - name: Install browser test runtime
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install chromium
+      - name: Browser interaction test OKA Weather Lab
+        run: node scripts/e2e-weather-lab.mjs
       - name: Browser interaction test V3.7
         run: node scripts/e2e-wind-wave-v37.mjs
       - name: Browser interaction test V3.8
