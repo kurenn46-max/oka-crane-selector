@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#08121d"><meta name="description" content="全国の地点を検索でき、使う地点ごとに予報履歴を分けて学習する天気PWA">
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml">
-<title>OKA Weather Lab v1.2</title>
+<title>OKA Weather Lab v1.2.1</title>
 <style>
 :root{color-scheme:dark;--bg:#07111b;--p:#0e1d2a;--p2:#122535;--line:#ffffff1a;--t:#eff7ff;--m:#9db0c1;--a:#58b8ff;--g:#62d49b;--w:#ffd166;--b:#ff7b72;font-family:system-ui,-apple-system,sans-serif}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);padding-bottom:20px}button,select,input{font:inherit;border:1px solid var(--line);background:#142838;color:var(--t);border-radius:12px;padding:10px}button{font-weight:750}input{width:100%;outline:none}.primary{background:var(--a);color:#04121d}
@@ -24,8 +24,8 @@ main{max-width:920px;margin:auto;padding:10px}.card{background:var(--p);border:1
 </style>
 </head><body>
 <header class="top">
-<div class="head"><div class="row"><div class="logo">☁</div><div><h1>OKA Weather Lab <span class="badge">v1.2</span></h1><div class="sub">全国対応・地点別に予報履歴を分離</div></div></div><div class="muted" id="status">● 未取得</div></div>
-<div class="controls"><select id="place"><option value="yamashina">北花山河原町</option><option value="obama">小浜漁港</option><option value="maizuru">舞鶴港</option><option value="takahama">高浜町</option><option value="current">現在地</option></select><button id="home">基準地点</button></div>
+<div class="head"><div class="row"><div class="logo">☁</div><div><h1>OKA Weather Lab <span class="badge">v1.2.1</span></h1><div class="sub">全国対応・地点別に予報履歴を分離</div></div></div><div class="muted" id="status">● 未取得</div></div>
+<div class="controls"><select id="place"><option value="yamashina">北花山河原町</option><option value="obama">小浜漁港</option><option value="tsunekami">常神漁港</option><option value="maizuru">舞鶴港</option><option value="takahama">高浜町</option><option value="current">現在地</option></select><button id="home">基準地点</button></div>
 <div class="search"><input id="searchInput" autocomplete="off" inputmode="search" placeholder="地名・市町村・郵便番号で検索"><button id="searchBtn">検索</button></div>
 <div id="searchResults"></div>
 <div class="actions"><button id="fetch" class="primary">☁ 天気を取得</button><button id="models">3モデル比較</button><button id="locate">📍 現在地</button></div>
