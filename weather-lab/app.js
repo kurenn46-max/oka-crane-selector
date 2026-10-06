@@ -1,4 +1,4 @@
-const P={yamashina:{name:"京都市山科区 北花山河原町",lat:34.988583,lon:135.800881},obama:{name:"福井県 小浜漁港",lat:35.502955,lon:135.735097},maizuru:{name:"京都府 舞鶴港",lat:35.47,lon:135.36},takahama:{name:"福井県 高浜町",lat:35.487522,lon:135.544846}};
+const P={yamashina:{name:"京都市山科区 北花山河原町",lat:34.988583,lon:135.800881},obama:{name:"福井県 小浜漁港",lat:35.502955,lon:135.735097},tsunekami:{name:"福井県 若狭町 常神漁港",lat:35.631694,lon:135.825750},maizuru:{name:"京都府 舞鶴港",lat:35.47,lon:135.36},takahama:{name:"福井県 高浜町",lat:35.487522,lon:135.544846}};
 const K={state:"okaWx.locations.v2",last:"okaWx.lastPlace.v2",oldSnap:"okaWx.snapshots.v1",oldVerify:"okaWx.verifies.v1"};let place={...P.yamashina},base=null,prev=null;
 const $=x=>document.getElementById(x),f=v=>Number.isFinite(Number(v))?Number(v).toFixed(1):"--",pad=n=>String(n).padStart(2,"0");
 const loadJSON=(k,d)=>{try{const x=JSON.parse(localStorage.getItem(k)||"");return x??d}catch{return d}},saveJSON=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
