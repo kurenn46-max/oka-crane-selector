@@ -10,10 +10,11 @@ if(await page.locator("#height").inputValue()!=="0.0")throw Error("height initia
 for(const id of ["radiusResult","depthResult","angleResult","tipHeightResult"])if((await page.locator("#"+id).textContent()).trim()!=="--")throw Error("initial result "+id);
 if(await page.locator("#drawing").locator("*").count()!==0)throw Error("initial overlay not empty");
 await page.locator("#distance").fill("2.0");await page.locator("#height").fill("5.0");
-await page.waitForFunction(()=>document.querySelector("#radiusResult").textContent.trim()==="14.9");
+await page.waitForFunction(()=>document.querySelector("#radiusResult").textContent.trim()==="17.5");
 const vals={r:await page.locator("#radiusResult").textContent(),d:await page.locator("#depthResult").textContent(),a:await page.locator("#angleResult").textContent(),h:await page.locator("#tipHeightResult").textContent()};
-if(!vals.d.includes("12.9")||!vals.a.includes("48.9")||!vals.h.includes("19.8"))throw Error("boom reference "+JSON.stringify(vals));
+if(!vals.r.includes("17.5")||!vals.d.includes("15.5")||!vals.a.includes("37.8")||!vals.h.includes("17.0"))throw Error("boom reference "+JSON.stringify(vals));
 if(await page.locator("#drawing line").count()<4)throw Error("boom overlay lines");
-for(const m of ["jib36","jib55"]){await page.locator('.mode[data-mode="'+m+'"]').click();await page.waitForTimeout(50);const r=parseFloat(await page.locator("#radiusResult").textContent());const d=parseFloat(await page.locator("#depthResult").textContent());if(!Number.isFinite(r)||!Number.isFinite(d)||r<=0)throw Error(m+" result");if(await page.locator("#drawing line").count()<5)throw Error(m+" overlay lines")}
+const jibRefs={jib36:{r:21.2,d:19.2,h:16.6},jib55:{r:23.1,d:21.1,h:16.3}};
+for(const m of ["jib36","jib55"]){await page.locator('.mode[data-mode="'+m+'"]').click();await page.waitForTimeout(50);const r=parseFloat(await page.locator("#radiusResult").textContent()),d=parseFloat(await page.locator("#depthResult").textContent()),h=parseFloat(await page.locator("#tipHeightResult").textContent()),e=jibRefs[m];if(Math.abs(r-e.r)>.11||Math.abs(d-e.d)>.11||Math.abs(h-e.h)>.11)throw Error(m+" calibrated result "+JSON.stringify({r,d,h}));if(await page.locator("#drawing line").count()<5)throw Error(m+" overlay lines")}
 await page.getByRole("button",{name:"初期値"}).click();if(await page.locator("#distance").inputValue()!=="0.0"||await page.locator("#height").inputValue()!=="0.0")throw Error("reset inputs");if((await page.locator("#radiusResult").textContent()).trim()!=="--")throw Error("reset results");if(await page.locator("#drawing").locator("*").count()!==0)throw Error("reset overlay");
-console.log("GR-120N Reach browser E2E: PASS");await b.close();srv.close();
+console.log("GR-120N Reach V1.1 browser E2E: PASS");await b.close();srv.close();
