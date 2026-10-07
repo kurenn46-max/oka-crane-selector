@@ -9,7 +9,7 @@
     "pdfToSvg": {"a": 0.998784, "d": -0.998784, "f": 841.321783}
   },
   "geometry": {
-    "pivot": {"radius": -0.75, "height": 1.85},
+    "pivot": {"radius": -1.3005, "height": 2.4389},
     "boom": {"length": 23.8, "minAngle": 0, "maxAngle": 82},
     "jibs": {
       "jib36": {"label": "3.6mジブ 45°", "length": 3.6, "offsetDeg": 45},
