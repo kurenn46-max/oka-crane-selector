@@ -121,9 +121,15 @@ function update(){
 
 async function loadSourceChart(){
   if(typeof DecompressionStream==='undefined') throw Error('gzip svg unsupported');
-  const r=await fetch('./assets/gr120n-range-chart.svg.gz',{cache:'force-cache'});
-  if(!r.ok) throw Error('chart load '+r.status);
-  const stream=r.body.pipeThrough(new DecompressionStream('gzip'));
+  const names=['00','01','02','03','04','05'];
+  const parts=await Promise.all(names.map(async n=>{
+    const r=await fetch('./assets/chart-min-b64/'+n+'.txt',{cache:'force-cache'});
+    if(!r.ok) throw Error('chart part '+n+' '+r.status);
+    return (await r.text()).trim();
+  }));
+  const bin=atob(parts.join(''));
+  const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   const svg=await new Response(stream).text();
   if(!svg.includes('viewBox="45 46 505 704"')) throw Error('chart geometry');
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
