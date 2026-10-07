@@ -119,8 +119,25 @@ function update(){
   draw(calc);
 }
 
+async function loadSourceChart(){
+  if(typeof DecompressionStream==='undefined') throw Error('gzip svg unsupported');
+  const r=await fetch('./assets/gr120n-range-chart.svg.gz',{cache:'force-cache'});
+  if(!r.ok) throw Error('chart load '+r.status);
+  const stream=r.body.pipeThrough(new DecompressionStream('gzip'));
+  const svg=await new Response(stream).text();
+  if(!svg.includes('viewBox="45 46 505 704"')) throw Error('chart geometry');
+  const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+  const img=$('sourceChart');
+  img.src=url;
+  img.addEventListener('load',()=>URL.revokeObjectURL(url),{once:true});
+}
+
 async function init(){
-  DATA=await fetch('./data/gr120n.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data load');return r.json()});
+  const [data]=await Promise.all([
+    fetch('./data/gr120n.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('data load');return r.json()}),
+    loadSourceChart()
+  ]);
+  DATA=data;
   $('distance').addEventListener('input',update);
   $('height').addEventListener('input',update);
   document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>{
