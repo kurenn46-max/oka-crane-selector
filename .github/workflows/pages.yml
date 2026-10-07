@@ -52,6 +52,8 @@ jobs:
         run: node scripts/e2e-gr120n-reach.mjs
       - name: Browser interaction test GR-120N Reach V1.2
         run: node scripts/e2e-gr120n-v12.mjs
+      - name: Calibration parity GR-120N Reach V1.2
+        run: node scripts/e2e-gr120n-v12-calibration.mjs
       - name: Browser interaction test OKA Weather Lab
         run: node scripts/e2e-weather-lab.mjs
       - name: Browser interaction test V3.7
