@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "model": "TADANO GR-120N-1",
+  "source": "GR-120N-1-00111_00118.pdf p.5 作業半径-揚程図",
+  "chart": {
+    "viewBox": [45, 46, 505, 704],
+    "pdfGridOrigin": {"x": 123.118436, "y": 211.790213},
+    "pdfMeters": 14.177393,
+    "pdfToSvg": {"a": 0.998784, "d": -0.998784, "f": 841.321783}
+  },
+  "geometry": {
+    "pivot": {"radius": -0.75, "height": 1.85},
+    "boom": {"length": 23.8, "minAngle": 0, "maxAngle": 82},
+    "jibs": {
+      "jib36": {"label": "3.6mジブ 45°", "length": 3.6, "offsetDeg": 45},
+      "jib55": {"label": "5.5mジブ 45°", "length": 5.5, "offsetDeg": 45}
+    }
+  }
+}
