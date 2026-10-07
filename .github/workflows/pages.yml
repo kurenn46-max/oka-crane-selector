@@ -16,6 +16,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Build official GR-120N range chart
+        run: |
+          if ! command -v pdftocairo >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y poppler-utils
+          fi
+          bash scripts/build-gr120n-reach.sh
       - name: Build Wind & Wave V3.3
         run: node scripts/build-wind-wave-v33.mjs
       - name: Build Wind & Wave V3.4
@@ -40,6 +47,8 @@ jobs:
         run: node scripts/check-wind-wave.mjs
       - name: Smoke test OKA Weather Lab
         run: node scripts/check-weather-lab.mjs
+      - name: Smoke test GR-120N Reach
+        run: node scripts/check-gr120n-reach.mjs
       - name: Install browser test runtime
         run: |
           npm install --no-save playwright@1.56.1
@@ -69,6 +78,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Build official GR-120N range chart
+        run: |
+          if ! command -v pdftocairo >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y poppler-utils
+          fi
+          bash scripts/build-gr120n-reach.sh
       - name: Build Wind & Wave V3.3
         run: node scripts/build-wind-wave-v33.mjs
       - name: Build Wind & Wave V3.4
