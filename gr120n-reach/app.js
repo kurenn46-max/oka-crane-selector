@@ -3,7 +3,7 @@ let DATA;
 let mode = 'boom';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const state = { distance: 2, height: 5 };
+const state = { distance: 0, height: 0 };
 
 function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 function rad(d){ return d*Math.PI/180; }
@@ -100,6 +100,17 @@ function draw(calc){
 function update(){
   state.distance=Number($('distance').value);
   state.height=Number($('height').value);
+  const ready=Number.isFinite(state.distance)&&Number.isFinite(state.height)&&state.distance>0&&state.height>0;
+  if(!ready){
+    $('radiusResult').textContent='--';
+    $('depthResult').textContent='--';
+    $('angleResult').textContent='--';
+    $('tipHeightResult').textContent='--';
+    $('drawing').replaceChildren();
+    const warn=$('warning');
+    warn.classList.add('hidden');
+    return;
+  }
   const calc=calculate(state.distance,state.height,mode);
   $('radiusResult').textContent=fmt(calc.radius);
   $('depthResult').textContent=fmt(calc.depth);
@@ -151,7 +162,7 @@ async function init(){
     document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===btn));
     update();
   }));
-  $('resetBtn').addEventListener('click',()=>{$('distance').value='2.0';$('height').value='5.0';mode='boom';document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x.dataset.mode==='boom'));update();});
+  $('resetBtn').addEventListener('click',()=>{$('distance').value='0.0';$('height').value='0.0';mode='boom';document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x.dataset.mode==='boom'));update();});
   update();
 }
 init().catch(err=>{console.error(err);$('warning').textContent='アプリデータの読み込みに失敗しました。再読み込みしてください。';$('warning').classList.remove('hidden')});
