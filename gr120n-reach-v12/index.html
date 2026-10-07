@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="description" content="GR-120N-1 基本1から発展した画像保存対応版">
+  <title>GR-120N 到達図 V1.2</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="appbar">
+    <div>
+      <div class="eyebrow">TADANO GR-120N-1</div>
+      <h1>到達図 <span>V1.2</span></h1>
+      <p>基本1を維持 / 画像保存対応</p>
+    </div>
+    <button id="resetBtn" class="ghost" type="button">初期値</button>
+  </header>
+
+  <main>
+    <section class="panel controls" aria-label="入力">
+      <div class="field-grid">
+        <label>
+          <span>建物まで <small>旋回芯から</small></span>
+          <div class="number"><input id="distance" type="number" min="0.1" max="24" step="0.1" value="0.0"><b>m</b></div>
+        </label>
+        <label>
+          <span>建物高さ</span>
+          <div class="number"><input id="height" type="number" min="0.1" max="32" step="0.1" value="0.0"><b>m</b></div>
+        </label>
+      </div>
+
+      <div class="mode-wrap">
+        <span class="mode-title">仕様</span>
+        <div class="segmented" role="tablist" aria-label="仕様切替">
+          <button class="mode active" data-mode="boom" type="button">フルブーム<br><small>23.8m</small></button>
+          <button class="mode" data-mode="jib36" type="button">3.6mジブ<br><small>45°</small></button>
+          <button class="mode" data-mode="jib55" type="button">5.5mジブ<br><small>45°</small></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="result-grid" aria-live="polite">
+      <article class="result primary-result"><span>作業半径</span><strong id="radiusResult">--</strong><em>m</em></article>
+      <article class="result"><span>建物奥へ</span><strong id="depthResult">--</strong><em>m</em></article>
+      <article class="result"><span>ブーム角度</span><strong id="angleResult">--</strong><em>°</em></article>
+      <article class="result"><span>先端高さ</span><strong id="tipHeightResult">--</strong><em>m</em></article>
+    </section>
+
+    <section class="panel share-panel">
+      <div>
+        <h2>共有画像</h2>
+        <p>LINE・メール・プレゼン貼り付け用にPNG保存</p>
+      </div>
+      <button id="saveImageBtn" class="save-btn" type="button">画像として保存</button>
+    </section>
+
+    <div id="warning" class="warning hidden" role="status"></div>
+    <div id="notice" class="notice hidden" role="status"></div>
+
+    <section class="panel chart-panel">
+      <div class="chart-head">
+        <div><h2>作業半径-揚程図</h2><p>基本1と同じ元PDFベクター図</p></div>
+        <div class="legend">
+          <span><i class="red"></i>ブーム線 / 建物</span>
+          <span><i class="green"></i>作業半径</span>
+          <span><i class="violet"></i>ジブ</span>
+        </div>
+      </div>
+      <div class="chart-scroll">
+        <div id="chartStage" class="chart-stage">
+          <img id="sourceChart" alt="GR-120N-1 作業半径-揚程図" draggable="false">
+          <svg id="overlay" viewBox="45 46 505 704" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g id="drawing"></g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel note">
+      <h2>V1.2</h2>
+      <p>基本1（V1.1）の計算・図面・精度条件は変更せず、共有用PNG画像の保存機能だけを追加した改良版です。</p>
+      <p>ブーム断面の厚み、クリアランス余裕、ブームたわみ、フック寸法、定格荷重判定は含めません。</p>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
