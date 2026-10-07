@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "model": "TADANO GR-120N-1",
   "source": "GR-120N-1-00111_00118.pdf p.5 作業半径-揚程図",
   "chart": {
@@ -10,10 +10,10 @@
   },
   "geometry": {
     "pivot": {"radius": -1.3005, "height": 2.4389},
-    "boom": {"length": 23.8, "minAngle": 0, "maxAngle": 82},
+    "boom": {"length": 23.8, "minAngle": 0, "maxAngle": 82, "calibration": {"officialArcRadius": 23.8024, "maxFitErrorM": 0.0012}},
     "jibs": {
-      "jib36": {"label": "3.6mジブ 45°", "length": 3.6, "offsetDeg": 45},
-      "jib55": {"label": "5.5mジブ 45°", "length": 5.5, "offsetDeg": 45}
+      "jib36": {"label": "3.6mジブ 45°", "nominalLength": 3.6, "length": 3.6932, "offsetDeg": 45, "calibration": {"officialArcRadius": 26.5403}},
+      "jib55": {"label": "5.5mジブ 45°", "nominalLength": 5.5, "length": 5.6235, "offsetDeg": 45, "calibration": {"officialArcRadius": 28.0596}}
     }
   }
 }
