@@ -99,6 +99,8 @@ try{
 
   // After a forecast is selected, grid selection must retain the selected hour.
   await page.selectOption("#windCellSelect","sea");
+  await page.waitForFunction(()=>document.querySelector("#gridDiag")?.textContent.includes("地形計算："),null,{timeout:30000});
+  await page.selectOption("#modelSelect","best_match");
   await page.waitForFunction(()=>document.querySelector("#gridDiag")?.textContent.includes("API応答座標"),null,{timeout:30000});
   const selected=await page.locator("#windCellSelect").inputValue();
   assert(selected==="sea","user sea cell selection did not persist");
