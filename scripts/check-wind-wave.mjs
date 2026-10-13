@@ -14,7 +14,8 @@ const files=[
   ["v3.9","wind-wave-learned-surface-v39/index.html"],
   ["v3.10","wind-wave-learned-surface-v310/index.html"],
   ["v3.11","wind-wave-learned-surface-v311/index.html"],
-  ["v3.12","wind-wave-learned-surface-v312/index.html"]
+  ["v3.12","wind-wave-learned-surface-v312/index.html"],
+  ["v3.13","wind-wave-learned-surface-v313/index.html"]
 ];
 
 let failed=false;
